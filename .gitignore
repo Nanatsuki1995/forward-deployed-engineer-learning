@@ -7,3 +7,7 @@ coverage
 .DS_Store
 npm-debug.log*
 docker-data
+
+# Local QA artifacts
+qa-artifacts/
+.playwright-mcp/

@@ -1,10 +1,16 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
-const TOKEN_STORAGE_KEY = 'fde-learning-access-token';
+const ACCESS_TOKEN_STORAGE_KEY = 'fde-learning-access-token';
+const REFRESH_TOKEN_STORAGE_KEY = 'fde-learning-refresh-token';
 
 let accessToken =
   typeof window === 'undefined'
     ? ''
-    : window.localStorage.getItem(TOKEN_STORAGE_KEY) || '';
+    : window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) || '';
+let refreshToken =
+  typeof window === 'undefined'
+    ? ''
+    : window.localStorage.getItem(REFRESH_TOKEN_STORAGE_KEY) || '';
+let refreshSessionPromise: Promise<AuthResponse> | null = null;
 
 export type UserRole = 'admin' | 'agent' | 'reviewer';
 
@@ -78,24 +84,51 @@ export interface HealthResponse {
   timestamp: string;
 }
 
-export interface LoginResponse {
+export interface AuthResponse {
   accessToken: string;
+  refreshToken: string;
   user: User;
+}
+
+export interface LogoutResponse {
+  success: true;
 }
 
 export const api = {
   health: () => request<HealthResponse>('/health'),
   login: async (body: { email: string; password: string }) => {
-    const response = await request<LoginResponse>('/auth/login', {
+    const response = await request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(body),
       skipAuth: true,
     });
-    setAccessToken(response.accessToken);
+    setAuthTokens(response);
     return response;
+  },
+  refreshSession: async () => refreshSession(),
+  logout: async () => {
+    const token = refreshToken;
+
+    try {
+      if (token) {
+        await request<LogoutResponse>('/auth/logout', {
+          method: 'POST',
+          body: JSON.stringify({ refreshToken: token }),
+          skipAuth: true,
+          skipRefresh: true,
+        });
+      }
+    } finally {
+      clearAuthTokens();
+    }
   },
   me: () => request<User>('/auth/me'),
   tickets: () => request<Ticket[]>('/tickets'),
+  updateTicketStatus: (ticketId: string, status: TicketStatus) =>
+    request<Ticket>(`/tickets/${ticketId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
   knowledge: () => request<KnowledgeDocument[]>('/knowledge'),
   aiLogs: () => request<AiLog[]>('/ai/logs'),
   createReplySuggestion: (ticketId: string) =>
@@ -106,36 +139,126 @@ export const api = {
     request<AiLog>(`/ai/tickets/${ticketId}/summary`, {
       method: 'POST',
     }),
+  hasStoredSession: () => Boolean(accessToken || refreshToken),
+  clearSession: () => clearAuthTokens(),
 };
+
+interface RequestOptions extends RequestInit {
+  skipAuth?: boolean;
+  skipRefresh?: boolean;
+}
 
 async function request<T>(
   path: string,
-  init: RequestInit & { skipAuth?: boolean } = {},
+  init: RequestOptions = {},
 ): Promise<T> {
-  const { skipAuth, ...requestInit } = init;
+  const { skipAuth, skipRefresh, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
+
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  if (accessToken && !skipAuth) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...requestInit,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(accessToken && !skipAuth
-        ? { Authorization: `Bearer ${accessToken}` }
-        : {}),
-      ...requestInit.headers,
-    },
+    headers,
   });
 
+  if (response.status === 401 && !skipAuth && !skipRefresh && refreshToken) {
+    await refreshSession();
+
+    return request<T>(path, {
+      ...init,
+      skipRefresh: true,
+    });
+  }
+
   if (!response.ok) {
-    const message = await response.text();
+    const message = await readErrorMessage(response);
     throw new Error(message || `Request failed with ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
   }
 
   return response.json() as Promise<T>;
 }
 
-function setAccessToken(token: string) {
-  accessToken = token;
+async function refreshSession(): Promise<AuthResponse> {
+  if (!refreshToken) {
+    throw new Error('登录已过期，请重新登录');
+  }
+
+  if (!refreshSessionPromise) {
+    refreshSessionPromise = request<AuthResponse>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken }),
+      skipAuth: true,
+      skipRefresh: true,
+    })
+      .then((response) => {
+        setAuthTokens(response);
+        return response;
+      })
+      .catch((error: unknown) => {
+        clearAuthTokens();
+        throw error;
+      })
+      .finally(() => {
+        refreshSessionPromise = null;
+      });
+  }
+
+  return refreshSessionPromise;
+}
+
+function setAuthTokens(response: AuthResponse) {
+  accessToken = response.accessToken;
+  refreshToken = response.refreshToken;
 
   if (typeof window !== 'undefined') {
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, response.accessToken);
+    window.localStorage.setItem(
+      REFRESH_TOKEN_STORAGE_KEY,
+      response.refreshToken,
+    );
+  }
+}
+
+function clearAuthTokens() {
+  accessToken = '';
+  refreshToken = '';
+
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
+    window.localStorage.removeItem(REFRESH_TOKEN_STORAGE_KEY);
+  }
+}
+
+async function readErrorMessage(response: Response): Promise<string> {
+  const text = await response.text();
+
+  if (!text) {
+    return '';
+  }
+
+  try {
+    const payload = JSON.parse(text) as {
+      message?: string | string[];
+      error?: string;
+    };
+
+    if (Array.isArray(payload.message)) {
+      return payload.message.join(', ');
+    }
+
+    return payload.message ?? payload.error ?? text;
+  } catch {
+    return text;
   }
 }

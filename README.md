@@ -97,12 +97,13 @@ pnpm infra:down
 
 ## 当前已实现的练习面
 
-后端已经接入 Prisma + PostgreSQL，并加入 JWT 鉴权和基础 RBAC。前端启动时会用演示账号自动登录，拿到 JWT 后再请求工单、知识库和 AI 接口。后续可以继续扩展 refresh token、Swagger、DTO 校验、Redis、队列和真实 LLM 调用。
+后端已经接入 Prisma + PostgreSQL，并加入 JWT 鉴权、refresh token 会话轮换和基础 RBAC。前端已经提供登录页、登录态恢复、受保护路由和权限感知工作台，拿到访问令牌后再请求工单、知识库和 AI 接口。后续可以继续扩展 Swagger、DTO 校验、Redis、队列和真实 LLM 调用。
 
 ### 数据模型
 
 ```text
 User
+RefreshToken
 Ticket
 TicketMessage
 KnowledgeDocument
@@ -119,6 +120,12 @@ apps/backend/prisma/schema.prisma
 
 ```text
 apps/backend/prisma/migrations/20260611000000_init/migration.sql
+```
+
+refresh token migration 位于：
+
+```text
+apps/backend/prisma/migrations/20260611130000_add_refresh_tokens/migration.sql
 ```
 
 ### RBAC
@@ -144,6 +151,14 @@ Authorization: Bearer <accessToken>
 }
 ```
 
+刷新会话请求体：
+
+```json
+{
+  "refreshToken": "<refreshToken>"
+}
+```
+
 注册请求体：
 
 ```json
@@ -162,6 +177,8 @@ Authorization: Bearer <accessToken>
 GET    /api/health
 POST   /api/auth/login
 POST   /api/auth/register
+POST   /api/auth/refresh
+POST   /api/auth/logout
 GET    /api/auth/me
 GET    /api/tickets
 GET    /api/tickets/:id
@@ -176,9 +193,9 @@ GET    /api/ai/logs
 
 ### 下一步建议
 
-1. 增加 refresh token、退出登录、登录页和权限感知 UI。
-2. 增加 Swagger 文档、DTO 参数校验和统一错误格式。
-3. 增加文件上传、文档解析、切片和 embedding。
-4. 增加 Redis 缓存、队列、限流和后台任务。
-5. 增加 Dockerfile、Nginx、CI/CD 和部署文档。
-6. 增加审计日志：谁在什么时候看了什么、改了什么、让 AI 做了什么。
+1. 增加 Swagger 文档、DTO 参数校验和统一错误格式。
+2. 增加文件上传、文档解析、切片和 embedding。
+3. 增加 Redis 缓存、队列、限流和后台任务。
+4. 增加 Dockerfile、Nginx、CI/CD 和部署文档。
+5. 增加审计日志：谁在什么时候看了什么、改了什么、让 AI 做了什么。
+6. 增加更细粒度的字段级权限和操作回放。

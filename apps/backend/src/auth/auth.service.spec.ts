@@ -19,12 +19,47 @@ type CreateUserMock = (args: {
     passwordHash: string;
   };
 }) => Promise<PrismaUser>;
+type RefreshTokenRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  expiresAt: Date;
+  revokedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  user?: PrismaUser;
+};
+type CreateRefreshTokenMock = (args: {
+  data: {
+    id: string;
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  };
+}) => Promise<RefreshTokenRecord>;
+type FindUniqueRefreshTokenMock = (
+  args: unknown,
+) => Promise<RefreshTokenRecord | null>;
+type UpdateRefreshTokenMock = (args: {
+  where: { id: string };
+  data: { revokedAt: Date };
+}) => Promise<RefreshTokenRecord>;
+type UpdateManyRefreshTokenMock = (args: {
+  where: { id: string; revokedAt: null };
+  data: { revokedAt: Date };
+}) => Promise<{ count: number }>;
 type SignMock = (payload: object) => string;
 
 interface PrismaMock {
   user: {
     findUnique: jest.MockedFunction<FindUniqueMock>;
     create: jest.MockedFunction<CreateUserMock>;
+  };
+  refreshToken: {
+    create: jest.MockedFunction<CreateRefreshTokenMock>;
+    findUnique: jest.MockedFunction<FindUniqueRefreshTokenMock>;
+    update: jest.MockedFunction<UpdateRefreshTokenMock>;
+    updateMany: jest.MockedFunction<UpdateManyRefreshTokenMock>;
   };
 }
 
@@ -41,6 +76,27 @@ describe('AuthService', () => {
         findUnique: jest.fn<FindUniqueMock>(),
         create: jest.fn<CreateUserMock>(),
       },
+      refreshToken: {
+        create: jest
+          .fn<CreateRefreshTokenMock>()
+          .mockImplementation((args: Parameters<CreateRefreshTokenMock>[0]) =>
+            Promise.resolve(createRefreshToken(args.data)),
+          ),
+        findUnique: jest.fn<FindUniqueRefreshTokenMock>(),
+        update: jest
+          .fn<UpdateRefreshTokenMock>()
+          .mockImplementation((args: Parameters<UpdateRefreshTokenMock>[0]) =>
+            Promise.resolve(
+              createRefreshToken({
+                id: args.where.id,
+                revokedAt: args.data.revokedAt,
+              }),
+            ),
+          ),
+        updateMany: jest
+          .fn<UpdateManyRefreshTokenMock>()
+          .mockResolvedValue({ count: 1 }),
+      },
     };
     jwtServiceMock = {
       sign: jest.fn<SignMock>().mockReturnValue('signed-token'),
@@ -55,6 +111,7 @@ describe('AuthService', () => {
     await expect(service.login({})).rejects.toBeInstanceOf(BadRequestException);
     expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
     expect(jwtServiceMock.sign).not.toHaveBeenCalled();
+    expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
   });
 
   it('rejects invalid passwords', async () => {
@@ -71,6 +128,7 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(jwtServiceMock.sign).not.toHaveBeenCalled();
+    expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
   });
 
   it('rejects registration when the email already exists', async () => {
@@ -86,6 +144,7 @@ describe('AuthService', () => {
 
     expect(prismaMock.user.create).not.toHaveBeenCalled();
     expect(jwtServiceMock.sign).not.toHaveBeenCalled();
+    expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
   });
 
   it('registers new users as agents with their submitted password', async () => {
@@ -112,20 +171,118 @@ describe('AuthService', () => {
     expect(
       await compare('password123', createArgs?.data.passwordHash ?? ''),
     ).toBe(true);
-    expect(response).toEqual({
-      accessToken: 'signed-token',
-      user: {
-        id: 'user-1',
-        name: 'New Agent',
-        email: 'new.agent@example.com',
-        role: 'agent',
-      },
+    expect(response.accessToken).toBe('signed-token');
+    expect(typeof response.refreshToken).toBe('string');
+    expect(response.user).toEqual({
+      id: 'user-1',
+      name: 'New Agent',
+      email: 'new.agent@example.com',
+      role: 'agent',
     });
     expect(jwtServiceMock.sign).toHaveBeenCalledWith({
       sub: 'user-1',
       email: 'new.agent@example.com',
       role: 'agent',
     });
+
+    const refreshCreateArgs = prismaMock.refreshToken.create.mock.calls[0]?.[0];
+    const [refreshTokenId, refreshTokenSecret] =
+      response.refreshToken.split('.');
+    expect(refreshCreateArgs?.data.id).toBe(refreshTokenId);
+    expect(refreshCreateArgs?.data.userId).toBe('user-1');
+    expect(refreshCreateArgs?.data.expiresAt).toBeInstanceOf(Date);
+    expect(
+      await compare(
+        refreshTokenSecret ?? '',
+        refreshCreateArgs?.data.tokenHash ?? '',
+      ),
+    ).toBe(true);
+  });
+
+  it('rotates refresh tokens and returns a fresh session', async () => {
+    const tokenHash = await hash('refresh-secret', 10);
+    prismaMock.refreshToken.findUnique.mockResolvedValue(
+      createRefreshToken({
+        id: 'refresh-token-1',
+        tokenHash,
+        user: createPrismaUser(),
+      }),
+    );
+
+    const response = await service.refresh({
+      refreshToken: 'refresh-token-1.refresh-secret',
+    });
+
+    expect(response.accessToken).toBe('signed-token');
+    expect(typeof response.refreshToken).toBe('string');
+    expect(response.user).toEqual({
+      id: 'user-1',
+      name: 'Agent',
+      email: 'agent@example.com',
+      role: 'agent',
+    });
+    const refreshUpdateArgs =
+      prismaMock.refreshToken.updateMany.mock.calls[0]?.[0];
+    expect(refreshUpdateArgs?.where.id).toBe('refresh-token-1');
+    expect(refreshUpdateArgs?.where.revokedAt).toBeNull();
+    expect(refreshUpdateArgs?.data.revokedAt).toBeInstanceOf(Date);
+    expect(prismaMock.refreshToken.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects revoked refresh tokens', async () => {
+    const tokenHash = await hash('refresh-secret', 10);
+    prismaMock.refreshToken.findUnique.mockResolvedValue(
+      createRefreshToken({
+        id: 'refresh-token-1',
+        tokenHash,
+        revokedAt: new Date('2026-06-11T01:00:00.000Z'),
+        user: createPrismaUser(),
+      }),
+    );
+
+    await expect(
+      service.refresh({ refreshToken: 'refresh-token-1.refresh-secret' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(prismaMock.refreshToken.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.refreshToken.update).not.toHaveBeenCalled();
+    expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects refresh tokens that were already rotated concurrently', async () => {
+    const tokenHash = await hash('refresh-secret', 10);
+    prismaMock.refreshToken.findUnique.mockResolvedValue(
+      createRefreshToken({
+        id: 'refresh-token-1',
+        tokenHash,
+        user: createPrismaUser(),
+      }),
+    );
+    prismaMock.refreshToken.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.refresh({ refreshToken: 'refresh-token-1.refresh-secret' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it('revokes refresh tokens on logout', async () => {
+    const tokenHash = await hash('refresh-secret', 10);
+    prismaMock.refreshToken.findUnique.mockResolvedValue(
+      createRefreshToken({
+        id: 'refresh-token-1',
+        tokenHash,
+      }),
+    );
+
+    await expect(
+      service.logout({ refreshToken: 'refresh-token-1.refresh-secret' }),
+    ).resolves.toEqual({ success: true });
+
+    const logoutUpdateArgs = prismaMock.refreshToken.update.mock.calls[0]?.[0];
+    expect(logoutUpdateArgs?.where.id).toBe('refresh-token-1');
+    expect(logoutUpdateArgs?.data.revokedAt).toBeInstanceOf(Date);
   });
 });
 
@@ -138,6 +295,23 @@ function createPrismaUser(overrides: Partial<PrismaUser> = {}): PrismaUser {
     email: 'agent@example.com',
     passwordHash: 'hashed-password',
     role: UserRole.AGENT,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
+function createRefreshToken(
+  overrides: Partial<RefreshTokenRecord> = {},
+): RefreshTokenRecord {
+  const now = new Date('2026-06-11T00:00:00.000Z');
+
+  return {
+    id: 'refresh-token-id',
+    userId: 'user-1',
+    tokenHash: 'hashed-refresh-token',
+    expiresAt: new Date('2026-06-18T00:00:00.000Z'),
+    revokedAt: null,
     createdAt: now,
     updatedAt: now,
     ...overrides,

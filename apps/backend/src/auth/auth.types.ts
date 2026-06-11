@@ -12,3 +12,9 @@ export interface JwtPayload {
   email: string;
   role: UserRole;
 }
+
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: AuthenticatedUser;
+}

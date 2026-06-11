@@ -15,6 +15,10 @@ interface RegisterBody {
   password: string;
 }
 
+interface RefreshBody {
+  refreshToken?: string;
+}
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -27,6 +31,16 @@ export class AuthController {
   @Post('register')
   register(@Body() body: RegisterBody) {
     return this.authService.register(body);
+  }
+
+  @Post('refresh')
+  refresh(@Body() body: RefreshBody) {
+    return this.authService.refresh(body);
+  }
+
+  @Post('logout')
+  logout(@Body() body: RefreshBody) {
+    return this.authService.logout(body);
   }
 
   @UseGuards(JwtAuthGuard)
