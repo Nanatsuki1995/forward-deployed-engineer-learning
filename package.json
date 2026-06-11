@@ -1,0 +1,30 @@
+{
+  "name": "forward-deployed-engineer-learning-path",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.5.3",
+  "description": "A learning workspace for building an AI work-order assistant with React, NestJS, PostgreSQL, Redis, and Docker.",
+  "workspaces": [
+    "apps/frontend",
+    "apps/backend"
+  ],
+  "scripts": {
+    "dev:frontend": "pnpm --filter frontend dev",
+    "dev:backend": "pnpm --filter backend start:dev",
+    "build": "pnpm --recursive --filter './apps/*' build",
+    "lint": "pnpm --recursive --filter './apps/*' lint",
+    "test:backend": "pnpm --filter backend test",
+    "test:e2e:backend": "pnpm --filter backend test:e2e",
+    "db:generate": "pnpm --filter backend prisma:generate",
+    "db:migrate": "pnpm --filter backend prisma:migrate",
+    "db:deploy": "pnpm --filter backend prisma:deploy",
+    "db:seed": "pnpm --filter backend prisma:seed",
+    "db:studio": "pnpm --filter backend prisma:studio",
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:down": "docker compose down"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  }
+}
