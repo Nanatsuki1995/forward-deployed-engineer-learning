@@ -81,6 +81,12 @@ http://localhost:5173
 http://localhost:3000/api
 ```
 
+Swagger 文档默认访问：
+
+```text
+http://localhost:3000/api/docs
+```
+
 演示账号：
 
 ```text
@@ -97,7 +103,7 @@ pnpm infra:down
 
 ## 当前已实现的练习面
 
-后端已经接入 Prisma + PostgreSQL，并加入 JWT 鉴权、refresh token 会话轮换和基础 RBAC。前端已经提供登录页、登录态恢复、受保护路由和权限感知工作台，拿到访问令牌后再请求工单、知识库和 AI 接口。后续可以继续扩展 Swagger、DTO 校验、Redis、队列和真实 LLM 调用。
+后端已经接入 Prisma + PostgreSQL，并加入 JWT 鉴权、refresh token 会话轮换、基础 RBAC、Swagger 文档、DTO 参数校验和统一错误格式。前端已经提供登录页、登录态恢复、受保护路由和权限感知工作台，拿到访问令牌后再请求工单、知识库和 AI 接口。后续可以继续扩展文件上传、文档解析、Redis、队列和真实 LLM 调用。
 
 ### 数据模型
 
@@ -191,11 +197,70 @@ POST   /api/ai/tickets/:ticketId/summary
 GET    /api/ai/logs
 ```
 
+### 参数校验和错误格式
+
+后端启动时会全局启用 DTO 参数校验：
+
+- 未在 DTO 中声明的字段会被拒绝。
+- 请求体类型、枚举值、必填字段和最小长度会在进入业务服务前校验。
+- 校验失败、鉴权失败、找不到资源等异常会统一输出同一种错误结构。
+
+错误响应示例：
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "email must be an email",
+    "details": [
+      "email must be an email",
+      "property extra should not exist"
+    ]
+  },
+  "meta": {
+    "timestamp": "2026-06-15T01:30:00.000Z",
+    "path": "/api/auth/login",
+    "method": "POST",
+    "statusCode": 400
+  }
+}
+```
+
+## 本次修改报告
+
+完成 README 下一步建议中的第一项：增加 Swagger 文档、DTO 参数校验和统一错误格式。
+
+修改范围：
+
+- 后端新增 Swagger 依赖和 `class-validator` / `class-transformer`，并在启动流程中注册 `/api/docs`。
+- 新增认证、工单、知识库请求 DTO，控制器改为使用 DTO 接收请求体。
+- 新增全局 `ValidationPipe`，开启白名单、未知字段拒绝和请求体转换。
+- 新增全局 HTTP 异常过滤器，把业务异常、鉴权异常、参数校验异常统一为 `{ error, meta }` 结构。
+- e2e 测试复用生产 app 配置，并覆盖登录参数校验的统一错误响应。
+
+验证结果：
+
+```text
+初始要求命令：npm test
+结果：失败，根 package.json 没有 test 脚本；已读取 npm error log，确认错误为 Missing script: "test"。
+
+pnpm test:backend
+结果：通过，2 个测试套件，9 个测试。
+
+pnpm test:e2e:backend
+结果：通过，1 个测试套件，2 个测试。
+
+pnpm --filter backend lint
+结果：通过。
+
+pnpm build
+结果：通过；前端 Vite 构建保留现有 chunk size warning，不影响本次后端功能。
+```
+
 ### 下一步建议
 
-1. 增加 Swagger 文档、DTO 参数校验和统一错误格式。
-2. 增加文件上传、文档解析、切片和 embedding。
-3. 增加 Redis 缓存、队列、限流和后台任务。
-4. 增加 Dockerfile、Nginx、CI/CD 和部署文档。
-5. 增加审计日志：谁在什么时候看了什么、改了什么、让 AI 做了什么。
-6. 增加更细粒度的字段级权限和操作回放。
+1. 增加文件上传、文档解析、切片和 embedding。
+2. 增加 Redis 缓存、队列、限流和后台任务。
+3. 增加 Dockerfile、Nginx、CI/CD 和部署文档。
+4. 增加审计日志：谁在什么时候看了什么、改了什么、让 AI 做了什么。
+5. 增加更细粒度的字段级权限和操作回放。

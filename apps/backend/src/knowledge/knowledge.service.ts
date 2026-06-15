@@ -1,12 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { mapKnowledgeDocument } from '../data/workbench.mapper';
 import { PrismaService } from '../prisma/prisma.service';
-
-export interface CreateKnowledgeDocumentBody {
-  title: string;
-  source?: string;
-  content?: string;
-}
+import type { CreateKnowledgeDocumentDto } from './dto/create-knowledge-document.dto';
 
 @Injectable()
 export class KnowledgeService {
@@ -20,7 +15,7 @@ export class KnowledgeService {
     return documents.map(mapKnowledgeDocument);
   }
 
-  async create(input: CreateKnowledgeDocumentBody) {
+  async create(input: CreateKnowledgeDocumentDto) {
     const document = await this.prisma.knowledgeDocument.create({
       data: {
         title: input.title,

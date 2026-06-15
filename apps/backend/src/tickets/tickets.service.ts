@@ -6,17 +6,9 @@ import {
   toPrismaTicketStatus,
 } from '../data/workbench.mapper';
 import { PrismaService } from '../prisma/prisma.service';
-import type { TicketPriority, TicketStatus } from '../data/workbench.types';
+import type { TicketStatus } from '../data/workbench.types';
 import type { AuthenticatedUser } from '../auth/auth.types';
-
-export interface CreateTicketBody {
-  title: string;
-  description: string;
-  category?: string;
-  priority?: TicketPriority;
-  requester?: string;
-  tags?: string[];
-}
+import type { CreateTicketDto } from './dto/create-ticket.dto';
 
 @Injectable()
 export class TicketsService {
@@ -52,7 +44,7 @@ export class TicketsService {
     return mapTicket(ticket);
   }
 
-  async create(input: CreateTicketBody, user: AuthenticatedUser) {
+  async create(input: CreateTicketDto, user: AuthenticatedUser) {
     const ticket = await this.prisma.ticket.create({
       data: {
         title: input.title,

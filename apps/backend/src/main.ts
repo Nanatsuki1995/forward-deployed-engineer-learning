@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { configureApp, configureSwagger } from './common/app-config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -8,7 +9,8 @@ async function bootstrap() {
     'http://localhost:5173',
   ];
 
-  app.setGlobalPrefix('api');
+  configureApp(app);
+  configureSwagger(app);
   app.enableCors({
     origin: allowedOrigins,
     credentials: true,

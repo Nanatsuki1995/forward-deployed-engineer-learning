@@ -11,21 +11,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { mapUser } from '../data/workbench.mapper';
 import type { User } from '../data/workbench.types';
 import type { AuthResponse, JwtPayload } from './auth.types';
-
-interface LoginInput {
-  email?: string;
-  password?: string;
-}
-
-interface RegisterInput {
-  name?: string;
-  email?: string;
-  password?: string;
-}
-
-interface RefreshInput {
-  refreshToken?: string;
-}
+import type { LoginDto } from './dto/login.dto';
+import type { RefreshTokenDto } from './dto/refresh-token.dto';
+import type { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
@@ -34,7 +22,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(input: LoginInput = {}): Promise<AuthResponse> {
+  async login(input: Partial<LoginDto> = {}): Promise<AuthResponse> {
     const email = input.email?.trim().toLowerCase();
     const password = input.password ?? '';
 
@@ -58,7 +46,7 @@ export class AuthService {
     return this.issueSession(mapUser(user));
   }
 
-  async register(input: RegisterInput = {}): Promise<AuthResponse> {
+  async register(input: Partial<RegisterDto> = {}): Promise<AuthResponse> {
     const name = input.name?.trim();
     const email = input.email?.trim().toLowerCase();
     const password = input.password ?? '';
@@ -92,7 +80,7 @@ export class AuthService {
     return this.issueSession(mapUser(user));
   }
 
-  async refresh(input: RefreshInput = {}): Promise<AuthResponse> {
+  async refresh(input: Partial<RefreshTokenDto> = {}): Promise<AuthResponse> {
     const parsedToken = this.parseRefreshToken(input.refreshToken);
     const storedToken = await this.prisma.refreshToken.findUnique({
       where: { id: parsedToken.id },
@@ -131,7 +119,9 @@ export class AuthService {
     return this.issueSession(mapUser(storedToken.user));
   }
 
-  async logout(input: RefreshInput = {}): Promise<{ success: true }> {
+  async logout(
+    input: Partial<RefreshTokenDto> = {},
+  ): Promise<{ success: true }> {
     await this.revokeRefreshToken(input.refreshToken);
 
     return { success: true };
