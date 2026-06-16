@@ -123,8 +123,26 @@ model KnowledgeDocument {
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
 
+  chunkRecords KnowledgeChunk[]
+
   @@index([status])
   @@index([createdAt])
+}
+
+model KnowledgeChunk {
+  id         String   @id @default(cuid())
+  documentId String
+  position   Int
+  content    String
+  startOffset Int
+  endOffset   Int
+  embedding  Float[]
+  createdAt  DateTime @default(now())
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, position])
+  @@index([documentId])
 }
 
 model AiLog {

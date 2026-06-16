@@ -28,16 +28,18 @@ interface NestErrorResponse {
   statusCode?: number;
 }
 
+interface MulterErrorLike {
+  code?: string;
+  message?: string;
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const response = context.getResponse<Response>();
     const request = context.getRequest<Request>();
-    const statusCode =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    const statusCode = this.getStatusCode(exception);
     const payload = this.toPayload(exception, request, statusCode);
 
     response.status(statusCode).json(payload);
@@ -50,17 +52,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
   ): ErrorPayload {
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
+    const multerError = this.isMulterError(exception) ? exception : undefined;
     const normalizedResponse =
       typeof exceptionResponse === 'object' && exceptionResponse !== null
         ? (exceptionResponse as NestErrorResponse)
         : undefined;
     const message =
-      typeof exceptionResponse === 'string'
+      multerError?.message ??
+      (typeof exceptionResponse === 'string'
         ? exceptionResponse
         : (this.normalizeMessage(normalizedResponse?.message) ??
           (statusCode === Number(HttpStatus.INTERNAL_SERVER_ERROR)
             ? 'Internal server error'
-            : 'Request failed'));
+            : 'Request failed')));
     const details =
       Array.isArray(normalizedResponse?.message) &&
       normalizedResponse.message.length > 0
@@ -70,7 +74,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     return {
       error: {
         code: this.normalizeCode(
-          normalizedResponse?.code ?? normalizedResponse?.error,
+          multerError?.code ??
+            normalizedResponse?.code ??
+            normalizedResponse?.error,
           statusCode,
         ),
         message,
@@ -102,5 +108,31 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     return `HTTP_${statusCode}`;
+  }
+
+  private isMulterError(exception: unknown): exception is MulterErrorLike {
+    const code = (exception as MulterErrorLike | null)?.code;
+
+    return (
+      typeof exception === 'object' &&
+      exception !== null &&
+      'code' in exception &&
+      typeof code === 'string' &&
+      code.startsWith('LIMIT_')
+    );
+  }
+
+  private getStatusCode(exception: unknown): number {
+    if (exception instanceof HttpException) {
+      return exception.getStatus();
+    }
+
+    if (this.isMulterError(exception)) {
+      return exception.code === 'LIMIT_FILE_SIZE'
+        ? HttpStatus.PAYLOAD_TOO_LARGE
+        : HttpStatus.BAD_REQUEST;
+    }
+
+    return HttpStatus.INTERNAL_SERVER_ERROR;
   }
 }

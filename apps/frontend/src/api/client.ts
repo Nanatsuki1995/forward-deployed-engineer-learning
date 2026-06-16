@@ -130,6 +130,28 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
   knowledge: () => request<KnowledgeDocument[]>('/knowledge'),
+  uploadKnowledgeDocument: (input: {
+    file: File;
+    source?: string;
+    title?: string;
+  }) => {
+    const formData = new FormData();
+
+    formData.append('file', input.file);
+
+    if (input.title?.trim()) {
+      formData.append('title', input.title.trim());
+    }
+
+    if (input.source?.trim()) {
+      formData.append('source', input.source.trim());
+    }
+
+    return request<KnowledgeDocument>('/knowledge/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
   aiLogs: () => request<AiLog[]>('/ai/logs'),
   createReplySuggestion: (ticketId: string) =>
     request<AiLog>(`/ai/tickets/${ticketId}/reply-suggestion`, {
@@ -154,8 +176,9 @@ async function request<T>(
 ): Promise<T> {
   const { skipAuth, skipRefresh, ...requestInit } = init;
   const headers = new Headers(requestInit.headers);
+  const hasFormDataBody = isFormDataBody(requestInit.body);
 
-  if (!headers.has('Content-Type')) {
+  if (!headers.has('Content-Type') && !hasFormDataBody) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -250,15 +273,30 @@ async function readErrorMessage(response: Response): Promise<string> {
   try {
     const payload = JSON.parse(text) as {
       message?: string | string[];
-      error?: string;
+      error?:
+        | string
+        | {
+        message?: string;
+        details?: string[];
+      };
     };
+
+    if (typeof payload.error === 'object' && payload.error !== null) {
+      return [payload.error.message, ...(payload.error.details ?? [])]
+        .filter(Boolean)
+        .join(', ');
+    }
 
     if (Array.isArray(payload.message)) {
       return payload.message.join(', ');
     }
 
-    return payload.message ?? payload.error ?? text;
+    return payload.message ?? (typeof payload.error === 'string' ? payload.error : text);
   } catch {
     return text;
   }
+}
+
+function isFormDataBody(body: BodyInit | null | undefined): body is FormData {
+  return typeof FormData !== 'undefined' && body instanceof FormData;
 }

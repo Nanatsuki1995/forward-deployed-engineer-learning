@@ -27,6 +27,7 @@ export function HomePage() {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploadingKnowledge, setIsUploadingKnowledge] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -165,6 +166,33 @@ export function HomePage() {
     }
   }
 
+  async function uploadKnowledgeDocument(input: {
+    file: File;
+    source?: string;
+    title?: string;
+  }): Promise<boolean> {
+    if (!permissions.canManageKnowledge) {
+      return false;
+    }
+
+    setIsUploadingKnowledge(true);
+    setError(null);
+
+    try {
+      const document = await api.uploadKnowledgeDocument(input);
+      setDocuments((currentDocuments) => [
+        document,
+        ...currentDocuments.filter((item) => item.id !== document.id),
+      ]);
+      return true;
+    } catch (requestError) {
+      setError(getErrorMessage(requestError, '知识文档上传失败'));
+      return false;
+    } finally {
+      setIsUploadingKnowledge(false);
+    }
+  }
+
   return (
     <Space className="home-page" orientation="vertical" size={18}>
       <header className="topbar">
@@ -229,7 +257,12 @@ export function HomePage() {
 
       <Row gutter={[18, 18]}>
         <Col lg={12} xs={24}>
-          <KnowledgePanel documents={documents} permissions={permissions} />
+          <KnowledgePanel
+            documents={documents}
+            isUploading={isUploadingKnowledge}
+            permissions={permissions}
+            onUpload={(input) => uploadKnowledgeDocument(input)}
+          />
         </Col>
         <Col lg={12} xs={24}>
           <RoadmapPanel />

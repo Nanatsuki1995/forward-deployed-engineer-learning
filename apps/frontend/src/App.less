@@ -382,6 +382,36 @@
   padding: 0;
 }
 
+.knowledge-upload-form {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid @border-soft;
+}
+
+.knowledge-file-input {
+  display: none;
+}
+
+.knowledge-upload-row {
+  width: 100%;
+}
+
+.knowledge-upload-meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.knowledge-upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  .ant-btn {
+    min-width: 0;
+  }
+}
+
 .knowledge-list-item {
   min-height: 72px;
   display: grid;
@@ -567,6 +597,16 @@
 
     .ant-tag {
       justify-self: start;
+    }
+  }
+
+  .knowledge-upload-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .knowledge-upload-actions {
+    .ant-btn {
+      width: 100%;
     }
   }
 }

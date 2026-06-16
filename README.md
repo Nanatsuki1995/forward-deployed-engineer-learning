@@ -103,7 +103,7 @@ pnpm infra:down
 
 ## 当前已实现的练习面
 
-后端已经接入 Prisma + PostgreSQL，并加入 JWT 鉴权、refresh token 会话轮换、基础 RBAC、Swagger 文档、DTO 参数校验和统一错误格式。前端已经提供登录页、登录态恢复、受保护路由和权限感知工作台，拿到访问令牌后再请求工单、知识库和 AI 接口。后续可以继续扩展文件上传、文档解析、Redis、队列和真实 LLM 调用。
+后端已经接入 Prisma + PostgreSQL，并加入 JWT 鉴权、refresh token 会话轮换、基础 RBAC、Swagger 文档、DTO 参数校验和统一错误格式。知识库已经支持手工录入和 Markdown/TXT 文件上传，上传后会做文本规范化、分片和本地确定性 embedding，并把分片写入 `KnowledgeChunk`。前端已经提供登录页、登录态恢复、受保护路由、权限感知工作台和知识库上传入口。后续可以继续扩展 Redis、队列、限流、后台任务和真实 LLM 调用。
 
 ### 数据模型
 
@@ -113,6 +113,7 @@ RefreshToken
 Ticket
 TicketMessage
 KnowledgeDocument
+KnowledgeChunk
 AiLog
 ```
 
@@ -132,6 +133,12 @@ refresh token migration 位于：
 
 ```text
 apps/backend/prisma/migrations/20260611130000_add_refresh_tokens/migration.sql
+```
+
+知识库分片 migration 位于：
+
+```text
+apps/backend/prisma/migrations/20260616093000_add_knowledge_chunks/migration.sql
 ```
 
 ### RBAC
@@ -192,10 +199,35 @@ POST   /api/tickets
 PATCH  /api/tickets/:id/status
 GET    /api/knowledge
 POST   /api/knowledge
+POST   /api/knowledge/upload
 POST   /api/ai/tickets/:ticketId/reply-suggestion
 POST   /api/ai/tickets/:ticketId/summary
 GET    /api/ai/logs
 ```
+
+### 知识库上传和索引
+
+`admin` 和 `agent` 可以上传知识文档：
+
+```text
+POST /api/knowledge/upload
+Content-Type: multipart/form-data
+```
+
+表单字段：
+
+```text
+file    必填，支持 .md / .markdown / .txt，最大 1MB
+title   可选，不填时使用文件名
+source  可选，不填时使用原始文件名
+```
+
+上传后端处理链：
+
+- 将 Markdown 规范化为可检索文本，移除基础 Markdown 标记并保留正文信息。
+- 按段落和长度切成知识分片，当前单片上限为 480 字符。
+- 为每个分片生成 16 维本地确定性 embedding，便于后续替换成真实向量模型。
+- 同步写入 `KnowledgeDocument` 和 `KnowledgeChunk`，文档列表继续返回文档级摘要。
 
 ### 参数校验和错误格式
 
@@ -228,39 +260,49 @@ GET    /api/ai/logs
 
 ## 本次修改报告
 
-完成 README 下一步建议中的第一项：增加 Swagger 文档、DTO 参数校验和统一错误格式。
+完成 README 下一步建议中的第一项：增加文件上传、文档解析、切片和 embedding。
 
 修改范围：
 
-- 后端新增 Swagger 依赖和 `class-validator` / `class-transformer`，并在启动流程中注册 `/api/docs`。
-- 新增认证、工单、知识库请求 DTO，控制器改为使用 DTO 接收请求体。
-- 新增全局 `ValidationPipe`，开启白名单、未知字段拒绝和请求体转换。
-- 新增全局 HTTP 异常过滤器，把业务异常、鉴权异常、参数校验异常统一为 `{ error, meta }` 结构。
-- e2e 测试复用生产 app 配置，并覆盖登录参数校验的统一错误响应。
+- 后端新增 `POST /api/knowledge/upload`，支持 `multipart/form-data` 上传 `.md`、`.markdown` 和 `.txt` 文档。
+- 新增 `KnowledgeChunk` Prisma 模型和 migration，用于保存分片文本、字符范围和 embedding 数组。
+- 知识服务新增 Markdown 文本规范化、段落切片和 16 维本地确定性 embedding 生成逻辑；手工录入和文件上传共用同一套处理链。
+- 上传端点接入 Swagger 文档，文件过大等上传错误继续输出统一 `{ error, meta }` 结构。
+- 前端知识库面板新增上传入口，支持填写标题/来源、选择 Markdown 文件、上传后即时刷新文档列表。
+- 根目录新增 `test` 脚本，让 `pnpm test` / `npm test` 直接运行前端组件测试、后端单测和后端 e2e 测试。
+- 新增前端知识库面板组件测试，覆盖管理角色上传入口、文件提交参数和只读角色隐藏上传控件。
+- 新增知识服务单测，覆盖 Markdown 规范化、分片 embedding、非法文件拒绝和上传入库参数。
 
 验证结果：
 
 ```text
 初始要求命令：npm test
-结果：失败，根 package.json 没有 test 脚本；已读取 npm error log，确认错误为 Missing script: "test"。
+初始结果：失败，根 package.json 没有 test 脚本；已读取 npm error log，确认错误为 Missing script: "test"。
+修复后结果：通过，当前会执行 pnpm test:frontend、pnpm test:backend 和 pnpm test:e2e:backend；npm 仍会提示本机 .npmrc 的 always-auth 警告，不影响测试。
+
+pnpm test:frontend
+结果：通过，1 个测试文件，3 个测试。
+
+pnpm test
+结果：通过，当前会执行前端组件测试、后端单测和后端 e2e 测试。
 
 pnpm test:backend
-结果：通过，2 个测试套件，9 个测试。
+结果：通过，3 个测试套件，13 个测试。
 
 pnpm test:e2e:backend
 结果：通过，1 个测试套件，2 个测试。
 
-pnpm --filter backend lint
-结果：通过。
+pnpm lint
+结果：通过，前后端 lint 均通过。
 
 pnpm build
-结果：通过；前端 Vite 构建保留现有 chunk size warning，不影响本次后端功能。
+结果：通过；前端 Vite 构建保留现有 chunk size warning，不影响本次功能。
 ```
 
 ### 下一步建议
 
-1. 增加文件上传、文档解析、切片和 embedding。
-2. 增加 Redis 缓存、队列、限流和后台任务。
+1. 增加 Redis 缓存、队列、限流和后台任务。
+2. 增加真实 embedding 模型和向量检索召回链路。
 3. 增加 Dockerfile、Nginx、CI/CD 和部署文档。
 4. 增加审计日志：谁在什么时候看了什么、改了什么、让 AI 做了什么。
 5. 增加更细粒度的字段级权限和操作回放。

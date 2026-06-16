@@ -13,6 +13,8 @@
     "dev:backend": "pnpm --filter backend start:dev",
     "build": "pnpm --recursive --filter './apps/*' build",
     "lint": "pnpm --recursive --filter './apps/*' lint",
+    "test": "pnpm test:frontend && pnpm test:backend && pnpm test:e2e:backend",
+    "test:frontend": "pnpm --filter frontend test",
     "test:backend": "pnpm --filter backend test",
     "test:e2e:backend": "pnpm --filter backend test:e2e",
     "db:generate": "pnpm --filter backend prisma:generate",
