@@ -1,15 +1,11 @@
 import { BadRequestException } from '@nestjs/common';
 import { KnowledgeStatus } from '@prisma/client';
-import { KnowledgeService, parseMarkdownKnowledge } from './knowledge.service';
+import { KnowledgeIndexingQueue } from '../jobs/knowledge-indexing.queue';
+import { KnowledgeIndexingService } from '../jobs/knowledge-indexing.service';
 import { PrismaService } from '../prisma/prisma.service';
-
-type KnowledgeChunkCreateInput = {
-  position: number;
-  content: string;
-  startOffset: number;
-  endOffset: number;
-  embedding: number[];
-};
+import { RedisCacheService } from '../redis/redis-cache.service';
+import { parseMarkdownKnowledge } from './knowledge-indexing';
+import { KnowledgeService } from './knowledge.service';
 
 type KnowledgeDocumentCreateArgs = {
   data: {
@@ -19,9 +15,6 @@ type KnowledgeDocumentCreateArgs = {
     chunks: number;
     citations: string[];
     status?: KnowledgeStatus;
-    chunkRecords: {
-      create: KnowledgeChunkCreateInput[];
-    };
   };
 };
 
@@ -65,6 +58,16 @@ describe('KnowledgeService', () => {
       findMany: jest.MockedFunction<FindManyKnowledgeDocumentMock>;
     };
   };
+  let cacheMock: {
+    getOrSet: jest.Mock;
+    delete: jest.Mock;
+  };
+  let queueMock: {
+    enqueueDocumentIndex: jest.Mock;
+  };
+  let indexerMock: {
+    indexDocument: jest.Mock;
+  };
   let service: KnowledgeService;
 
   beforeEach(() => {
@@ -93,10 +96,37 @@ describe('KnowledgeService', () => {
       },
     };
 
-    service = new KnowledgeService(prismaMock as unknown as PrismaService);
+    cacheMock = {
+      getOrSet: jest.fn((_key, _ttl, loader: () => Promise<unknown>) =>
+        loader(),
+      ),
+      delete: jest.fn().mockResolvedValue(undefined),
+    };
+    queueMock = {
+      enqueueDocumentIndex: jest.fn().mockResolvedValue(true),
+    };
+    indexerMock = {
+      indexDocument: jest.fn(),
+    };
+
+    service = new KnowledgeService(
+      prismaMock as unknown as PrismaService,
+      cacheMock as unknown as RedisCacheService,
+      queueMock as unknown as KnowledgeIndexingQueue,
+      indexerMock as unknown as KnowledgeIndexingService,
+    );
   });
 
-  it('creates manual entries through the markdown pipeline', async () => {
+  it('reads document lists through Redis cache', async () => {
+    await service.findAll();
+
+    expect(cacheMock.getOrSet).toHaveBeenCalled();
+    expect(prismaMock.knowledgeDocument.findMany).toHaveBeenCalledWith({
+      orderBy: { createdAt: 'desc' },
+    });
+  });
+
+  it('creates manual entries as processing documents and enqueues indexing', async () => {
     const document = await service.create({
       title: ' 手工 笔记 ',
       source: ' notes.md ',
@@ -107,10 +137,14 @@ describe('KnowledgeService', () => {
 
     expect(createArgs?.data.title).toBe('手工 笔记');
     expect(createArgs?.data.source).toBe('notes.md');
-    expect(createArgs?.data.chunks).toBe(1);
-    expect(createArgs?.data.citations).toEqual(['人工录入']);
+    expect(createArgs?.data.status).toBe(KnowledgeStatus.PROCESSING);
+    expect(createArgs?.data.chunks).toBe(0);
+    expect(createArgs?.data.citations).toEqual(['后台索引中']);
+    expect(queueMock.enqueueDocumentIndex).toHaveBeenCalledWith('doc-1');
+    expect(indexerMock.indexDocument).not.toHaveBeenCalled();
     expect(document.title).toBe('手工 笔记');
     expect(document.source).toBe('notes.md');
+    expect(document.status).toBe('processing');
   });
 
   it('rejects unsupported upload files', async () => {
@@ -142,18 +176,40 @@ describe('KnowledgeService', () => {
 
     expect(createArgs?.data.title).toBe('上传标题');
     expect(createArgs?.data.source).toBe('uploaded.md');
-    expect(createArgs?.data.chunks).toBe(1);
-    expect(createArgs?.data.citations).toEqual(['规则', '第一段']);
-    expect(createArgs?.data.chunkRecords.create).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          position: 0,
-          startOffset: 0,
-          endOffset: expect.any(Number) as number,
-        }),
-      ]),
-    );
-    expect(createArgs?.data.status).toBeUndefined();
+    expect(createArgs?.data.status).toBe(KnowledgeStatus.PROCESSING);
+    expect(createArgs?.data.chunks).toBe(0);
+    expect(createArgs?.data.citations).toEqual(['后台索引中']);
+    expect(queueMock.enqueueDocumentIndex).toHaveBeenCalledWith('doc-1');
     expect(document.source).toBe('uploaded.md');
+    expect(document.status).toBe('processing');
+  });
+
+  it('indexes inline when Redis queue is unavailable', async () => {
+    queueMock.enqueueDocumentIndex.mockResolvedValue(false);
+    indexerMock.indexDocument.mockResolvedValue({
+      id: 'doc-1',
+      title: '上传标题',
+      source: 'uploaded.md',
+      content: '规则\n\n第一段',
+      status: KnowledgeStatus.INDEXED,
+      chunks: 1,
+      citations: ['规则', '第一段'],
+      createdAt: new Date('2026-06-16T00:00:00.000Z'),
+      updatedAt: new Date('2026-06-16T00:00:00.000Z'),
+    });
+
+    const document = await service.upload(
+      { title: '上传标题', source: 'uploaded.md' },
+      {
+        originalname: 'playbook.md',
+        mimetype: 'text/markdown',
+        size: 64,
+        buffer: Buffer.from('# 规则\n\n第一段'),
+      },
+    );
+
+    expect(indexerMock.indexDocument).toHaveBeenCalledWith('doc-1');
+    expect(document.status).toBe('indexed');
+    expect(document.chunks).toBe(1);
   });
 });
