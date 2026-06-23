@@ -3,6 +3,7 @@ FROM node:22-alpine AS build
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
 RUN corepack enable && corepack prepare pnpm@11 --activate
 
 WORKDIR /app
