@@ -1,4 +1,5 @@
 import { Bot, CheckCircle2, Gauge, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { MarkdownViewer } from '../MarkdownViewer';
 import {
   Alert,
   Button,
@@ -149,7 +150,7 @@ export function TicketDetail({
         </Space>
         {latestAiLog ? (
           <>
-            <pre>{latestAiLog.result}</pre>
+            <MarkdownViewer content={latestAiLog.result} />
             <Row gutter={[8, 8]}>
               <Col>
                 <Tag color="green">

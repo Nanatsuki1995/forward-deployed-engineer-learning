@@ -1,8 +1,9 @@
 import { useRef, useState, useCallback } from 'react';
-import { Search, UploadCloud } from 'lucide-react';
+import { Bot, Search, UploadCloud } from 'lucide-react';
 import { Button, Card, Input, List, Space, Tag, Typography } from 'antd';
 import { api, type KnowledgeDocument, type KnowledgeSearchResult } from '../../api/client';
 import type { RolePermissions } from '../../lib/workbench';
+import { MarkdownViewer } from '../MarkdownViewer';
 
 export function KnowledgePanel({
   documents,
@@ -26,6 +27,7 @@ export function KnowledgePanel({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<KnowledgeSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [expandedDoc, setExpandedDoc] = useState<string | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearch = useCallback(
@@ -193,7 +195,26 @@ export function KnowledgePanel({
               <Tag>{document.status}</Tag>
               <Tag>{document.chunks} chunks</Tag>
               <Tag>{document.citations.length} citations</Tag>
+              {document.content && (
+                <Button
+                  icon={<Bot size={14} />}
+                  onClick={() =>
+                    setExpandedDoc(
+                      expandedDoc === document.id ? null : document.id,
+                    )
+                  }
+                  size="small"
+                  type="link"
+                >
+                  {expandedDoc === document.id ? '收起预览' : '查看内容'}
+                </Button>
+              )}
             </Space>
+            {expandedDoc === document.id && document.content && (
+              <div className="knowledge-content-preview">
+                <MarkdownViewer content={document.content} />
+              </div>
+            )}
           </article>
         ))}
       </div>
