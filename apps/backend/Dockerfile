@@ -18,7 +18,7 @@ COPY apps/backend/ apps/backend/
 WORKDIR /app/apps/backend
 RUN pnpm prisma:generate
 RUN pnpm build
-RUN pnpm prune --prod
+RUN CI=true pnpm prune --prod
 
 # Stage 2: Production
 FROM node:22-alpine AS production
