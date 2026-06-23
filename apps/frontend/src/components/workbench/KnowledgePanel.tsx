@@ -147,7 +147,7 @@ export function KnowledgePanel({
             onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
             type="file"
           />
-          <Space className="knowledge-upload-row" direction="vertical" size={10}>
+          <Space className="knowledge-upload-row" orientation="vertical" size={10}>
             <div className="knowledge-upload-meta">
               <Input
                 allowClear

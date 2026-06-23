@@ -341,6 +341,303 @@ Prisma schema：[`apps/backend/prisma/schema.prisma`](apps/backend/prisma/schema
 | `pnpm docker:up` | 启动生产栈 |
 | `pnpm docker:down` | 停止生产栈 |
 
+## 🧠 DeepSeek V4 Pro 模型集成计划
+
+### 目标
+
+将当前 `mock-llm-local` 模板回复替换为真实的 DeepSeek V4 Pro 大模型调用，让 AI 工单助手具备真正的智能回复建议和工单摘要能力。
+
+### 架构设计
+
+沿用现有的 Embedding Provider 可插拔模式，抽象 `AiProvider` 接口：
+
+```
+                    ┌──────────────┐
+                    │  AiService   │
+                    └──────┬───────┘
+                           │ 注入 AiProvider
+                    ┌──────┴───────┐
+                    │ AiProvider    │  (接口)
+                    │ - replySuggestion()
+                    │ - summary()    │
+                    └──────┬───────┘
+                           │
+              ┌────────────┼────────────┐
+              │                         │
+     ┌────────┴────────┐     ┌─────────┴─────────┐
+     │ MockAiProvider   │     │ DeepSeekAiProvider │
+     │ (默认, 模板)      │     │ (调用 DeepSeek API) │
+     └─────────────────┘     └───────────────────┘
+```
+
+**设计原则：**
+- 与现有 `EmbeddingProvider` 模式一致，降低学习成本
+- 通过 `AI_PROVIDER` 环境变量切换，默认保持 `mock` 确保测试无需外部依赖
+- DeepSeek API 兼容 OpenAI 接口格式，使用标准的 `/chat/completions` 端点
+
+### 实施步骤
+
+---
+
+#### 第 1 步：新增环境变量
+
+在 `.env.example` 和 `.env` 中添加：
+
+```bash
+# AI 模型提供者
+AI_PROVIDER=mock                   # mock | deepseek
+DEEPSEEK_API_KEY=                  # DeepSeek API Key
+DEEPSEEK_API_BASE=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-pro
+```
+
+---
+
+#### 第 2 步：创建 AiProvider 接口
+
+**文件：** `apps/backend/src/ai/ai-provider.interface.ts`
+
+```typescript
+export interface AiReplySuggestionInput {
+  ticketTitle: string;
+  ticketDescription: string;
+  ticketCategory: string;
+  ticketPriority: string;
+  requester: string;
+  assignee: string;
+  knowledgeContext?: string;
+}
+
+export interface AiSummaryInput {
+  ticketTitle: string;
+  ticketDescription: string;
+  ticketStatus: string;
+  ticketPriority: string;
+  assignee: string;
+  ticketTags: string[];
+}
+
+export interface AiProviderOutput {
+  result: string;
+  confidence: number;
+  citations: string[];
+}
+
+export interface AiProvider {
+  generateReplySuggestion(input: AiReplySuggestionInput): Promise<AiProviderOutput>;
+  generateSummary(input: AiSummaryInput): Promise<AiProviderOutput>;
+}
+```
+
+---
+
+#### 第 3 步：实现 MockAiProvider
+
+**文件：** `apps/backend/src/ai/mock-ai.provider.ts`
+
+将 `AiService` 中现有的模板回复逻辑抽取到 `MockAiProvider` 中，保持行为不变。
+
+```typescript
+@Injectable()
+export class MockAiProvider implements AiProvider {
+  async generateReplySuggestion(input: AiReplySuggestionInput): Promise<AiProviderOutput> {
+    // 现有模板逻辑迁移到这里
+  }
+
+  async generateSummary(input: AiSummaryInput): Promise<AiProviderOutput> {
+    // 现有模板逻辑迁移到这里
+  }
+}
+```
+
+---
+
+#### 第 4 步：实现 DeepSeekAiProvider
+
+**文件：** `apps/backend/src/ai/deepseek-ai.provider.ts`
+
+核心实现，调用 DeepSeek Chat Completions API：
+
+```typescript
+@Injectable()
+export class DeepSeekAiProvider implements AiProvider {
+  private readonly apiBase: string;
+  private readonly apiKey: string;
+  private readonly model: string;
+
+  constructor() {
+    this.apiBase = process.env.DEEPSEEK_API_BASE ?? 'https://api.deepseek.com';
+    this.apiKey = process.env.DEEPSEEK_API_KEY ?? '';
+    this.model = process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-pro';
+  }
+
+  async generateReplySuggestion(input: AiReplySuggestionInput): Promise<AiProviderOutput> {
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT_REPLY },
+      { role: 'user', content: JSON.stringify(input) },
+    ];
+
+    const response = await fetch(`${this.apiBase}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2048,
+      }),
+    });
+
+    // 解析响应，提取 result、confidence、citations
+  }
+
+  async generateSummary(input: AiSummaryInput): Promise<AiProviderOutput> {
+    // 类似的 Chat Completions 调用
+  }
+}
+```
+
+**System Prompt 设计要点：**
+
+| 场景 | Prompt 要点 |
+|------|------------|
+| 回复建议 | 角色定位（交付工程师助手）、工单上下文、引用知识库、风险提示、人工确认要求 |
+| 工单摘要 | 结构化输出（摘要/当前状态/建议下一步）、标签提取、置信度评估 |
+
+**关键实现细节：**
+- 使用 `fetch` (Node.js 22 内置)，无需额外依赖
+- 错误处理：API 超时（30s）、非 2xx 响应、JSON 解析失败
+- 结构化输出：Prompt 中要求 JSON 格式返回，包含 `result`/`confidence`/`citations` 字段
+- 降级策略：API 调用失败时降级到 `MockAiProvider`，确保服务可用
+
+---
+
+#### 第 5 步：创建 Provider 工厂
+
+**文件：** `apps/backend/src/ai/ai-provider.factory.ts`
+
+```typescript
+export function createAiProvider(): AiProvider {
+  const provider = (process.env.AI_PROVIDER ?? 'mock').toLowerCase();
+
+  switch (provider) {
+    case 'deepseek':
+      return new DeepSeekAiProvider();
+    case 'mock':
+    default:
+      return new MockAiProvider();
+  }
+}
+```
+
+---
+
+#### 第 6 步：重构 AiService
+
+修改 `AiService`，通过依赖注入使用 `AiProvider`：
+
+```typescript
+@Injectable()
+export class AiService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly aiProvider: AiProvider,  // 注入
+  ) {}
+
+  async createReplySuggestion(ticketId: string, user?: AuthenticatedUser) {
+    const ticket = await this.getTicketOrThrow(ticketId);
+    const documents = await this.fetchRelevantDocuments(ticket);
+
+    const output = await this.aiProvider.generateReplySuggestion({
+      ticketTitle: ticket.title,
+      ticketDescription: ticket.description,
+      ticketCategory: ticket.category,
+      ticketPriority: ticket.priority,
+      requester: ticket.requester,
+      assignee: ticket.assignee ?? '未分配',
+      knowledgeContext: documents.map(d => d.content).join('\n'),
+    });
+
+    // 写入 AiLog（逻辑不变）
+    const log = await this.prisma.aiLog.create({
+      data: {
+        ticketId,
+        type: AiLogType.REPLY_SUGGESTION,
+        promptVersion: 'fde-ticket-assistant-v2',
+        model: this.aiProvider instanceof DeepSeekAiProvider ? 'deepseek-v4-pro' : 'mock-llm-local',
+        result: output.result,
+        confidence: output.confidence,
+        citations: output.citations,
+        actorId: user?.id ?? null,
+      },
+    });
+
+    return mapAiLog(log);
+  }
+}
+```
+
+---
+
+#### 第 7 步：更新 AiModule
+
+```typescript
+@Module({
+  imports: [AuthModule],
+  controllers: [AiController],
+  providers: [
+    AiService,
+    {
+      provide: 'AI_PROVIDER',
+      useFactory: createAiProvider,
+    },
+  ],
+})
+export class AiModule {}
+```
+
+> 注意：需要用 `@Inject('AI_PROVIDER')` 装饰器注入，或使用自定义 Provider 类 token。
+
+---
+
+#### 第 8 步：更新测试
+
+| 测试文件 | 变更 |
+|---------|------|
+| `ai.service.spec.ts` | Mock `AiProvider`，验证 Service 正确调用 Provider 并写入日志 |
+| `mock-ai.provider.spec.ts` | 新增，验证模板输出格式和内容 |
+| `deepseek-ai.provider.spec.ts` | 新增，Mock `fetch` 验证请求格式和响应解析 |
+| `ai.controller.spec.ts` | 无需变更（仅路由和鉴权） |
+
+---
+
+#### 第 9 步：更新文档
+
+- `.env.example` — 添加 DeepSeek 相关环境变量
+- `README.md` — 添加 DeepSeek 配置说明和使用示例
+
+### 验证清单
+
+| 序号 | 验证项 | 预期结果 |
+|:---:|------|------|
+| 1 | `pnpm test` 全部通过 | mock provider 下行为不变 |
+| 2 | 设置 `AI_PROVIDER=deepseek` + 有效 API Key | 返回真实 AI 生成内容 |
+| 3 | 设置 `AI_PROVIDER=deepseek` + 无效 API Key | 优雅降级，记录错误日志 |
+| 4 | `pnpm lint` 通过 | 无 ESLint 错误 |
+| 5 | `pnpm build` 通过 | TypeScript 编译无错误 |
+
+### 安全注意事项
+
+- ⚠️ **API Key 绝不提交到代码仓库** — 仅通过 `.env` 配置
+- ⚠️ `.env.example` 中 `DEEPSEEK_API_KEY` 留空，仅作占位
+- ⚠️ 工单数据发送到 DeepSeek API 前检查是否包含敏感信息
+- ⚠️ 所有 AI 调用记录到 `AiLog` 表，支持审计追溯
+
+---
+
 ## 本次修改报告
 
 完成 README 下一步建议中的全部四项：

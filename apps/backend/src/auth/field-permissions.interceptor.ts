@@ -34,7 +34,7 @@ export class FieldPermissionsInterceptor implements NestInterceptor {
     }
 
     const readableFields = getReadableFields(
-      user.role as 'ADMIN' | 'AGENT' | 'REVIEWER',
+      user.role.toUpperCase() as 'ADMIN' | 'AGENT' | 'REVIEWER',
     );
 
     // If user can read all fields, no filtering needed
