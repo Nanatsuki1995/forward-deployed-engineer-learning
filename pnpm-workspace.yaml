@@ -7,3 +7,6 @@ allowBuilds:
   msgpackr-extract: false
   prisma: true
   unrs-resolver: true
+
+# Disable interactive prompt during prune (required for CI/Docker)
+confirmModulesPurge: false
