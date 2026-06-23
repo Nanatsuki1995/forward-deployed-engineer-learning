@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AiLogType } from '@prisma/client';
 import { mapAiLog } from '../data/workbench.mapper';
+import { KnowledgeService } from '../knowledge/knowledge.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import type { AiProvider, AiProviderOutput } from './ai-provider.interface';
@@ -13,21 +14,26 @@ export class AiService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly knowledgeService: KnowledgeService,
     @Inject(AI_PROVIDER_TOKEN) private readonly aiProvider: AiProvider,
   ) {}
 
   async createReplySuggestion(ticketId: string, user?: AuthenticatedUser) {
     const ticket = await this.getTicketOrThrow(ticketId);
 
-    const documents = await this.prisma.knowledgeDocument.findMany({
-      take: 3,
-      orderBy: { createdAt: 'desc' },
-      where: { status: 'INDEXED' },
-    });
+    // RAG 增强：用向量搜索检索最相关的知识文档（而非简单取最新文档）
+    const searchQuery = `${ticket.title} ${ticket.description}`;
+    const relevantResults = await this.knowledgeService.search(searchQuery, 5);
 
+    const relevantDocuments = relevantResults.map((r) => r.document);
     const knowledgeContext =
-      documents.length > 0
-        ? documents.map((doc) => doc.content).join('\n---\n')
+      relevantDocuments.length > 0
+        ? relevantDocuments
+            .map(
+              (doc, i) =>
+                `[文档${i + 1}: ${doc.title}（来源: ${doc.source}）]\n${doc.content}`,
+            )
+            .join('\n---\n')
         : undefined;
 
     const output = await this.callWithFallback(
@@ -48,13 +54,13 @@ export class AiService {
           '系统会保留处理记录、引用来源和人工确认结果，避免 AI 自动执行高风险动作。',
         ].join('\n'),
         confidence: ticket.priority === 'URGENT' ? 0.72 : 0.84,
-        citations: documents.map((doc) => doc.title),
+        citations: relevantDocuments.map((doc) => doc.title),
       },
     );
 
     const citations = [
       ...output.citations,
-      ...documents.map((doc) => doc.title),
+      ...relevantDocuments.map((doc) => doc.title),
     ];
 
     const log = await this.prisma.aiLog.create({

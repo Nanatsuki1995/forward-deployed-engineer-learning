@@ -668,3 +668,170 @@ pnpm lint
 pnpm build
 结果：通过；前端 Vite 构建保留现有 chunk size warning，不影响本次功能。
 ```
+
+## 🎯 DeepSeek V4 Pro 回答质量优化方案
+
+> **状态：** 方案研究 & 理论验证通过 | 代码改动：已完成
+
+### 优化总览
+
+| 层级 | 手段 | 预期效果 | 改动量 | 可行性 |
+|:---:|------|------|:---:|:---:|
+| 1 | 采样参数对齐官方建议 | 基础质量提升 | 极小 | ✅ |
+| 2 | JSON Mode 结构化输出 | 消除解析失败 | 极小 | ✅ |
+| 3 | System Prompt 深化设计 | 回答专业性、可控性 | 中 | ✅ |
+| 4 | Few-shot 示例注入 | 格式一致性、领域知识 | 中 | ✅ |
+| 5 | RAG 知识增强 | 引用准确性 | 中 | ✅ |
+| 6 | Thinking 推理模式 | 复杂工单质量 | 小 | ✅ |
+| 7 | 上下文缓存利用 | API 成本 ↓ 120x | 无 | ✅ (自动) |
+| 8 | 输出验证 + 重试 | 可靠性兜底 | 中 | ✅ |
+
+### 1. 采样参数对齐官方建议
+
+| 参数 | 当前代码值 | DeepSeek 官方推荐 | 说明 |
+|------|-----------|-------------------|------|
+| `temperature` | `0.7` | **`1.0`** | 官方声明：MoE 模型不要照搬 GPT/Claude 的低温设置 |
+| `top_p` | 未设置 | **`1.0`** | 官方推荐，与 temperature 配合使用 |
+| `max_tokens` | `2048` | **`4096`**+ | 回复建议和摘要通常需要更长的输出 |
+
+### 2. JSON Mode 结构化输出
+
+使用 DeepSeek 原生 `response_format: { type: 'json_object' }`，模型保证输出合法 JSON，消除解析失败。
+
+### 3. System Prompt 深化设计
+
+四段式 Prompt：角色定位（望江街道政务服务中心 AI 助手） → 正面规范（6条） → 禁止事项（4条） → 输出 JSON Schema。
+
+### 4. Few-shot 示例注入
+
+按工单分类匹配 `REPLY_FEWSHOT_EXAMPLES` 库（`城市治理` / `default`），及 `SUMMARY_FEWSHOT_EXAMPLE`。DeepSeek V4 Pro 的 1M 上下文窗口可承载示例。
+
+### 5. RAG 知识增强
+
+从"取最新 3 篇文档"改为"用工单标题+描述做向量语义搜索，取最相关的 5 篇"。利用现有的 `KnowledgeService.search()` 接口。
+
+### 6. Thinking 推理模式
+
+紧急工单（`URGENT`）自动启用 `thinking: { type: 'enabled' }` + `reasoning_effort: 'high'`。
+
+### 7. 上下文缓存利用
+
+DeepSeek 自动启用硬盘缓存。System Prompt 为静态常量 → Cache Hit。输入成本降低约 120 倍。
+
+### 8. 输出验证 + 重试
+
+4 层校验（内容长度、置信度阈值、禁止词正则、引用检查）→ 未通过重试最多 2 次 → 降级 mock。
+
+---
+
+## 本次修改报告：DeepSeek V4 Pro 回答质量优化落地
+
+> **完成时间：** 2026-06-23 | **改动文件：** 4 个 | **新增文件：** 0 个
+
+### 实施内容
+
+| 序号 | 优化项 | 改动位置 | 状态 |
+|:---:|------|------|:---:|
+| 1 | 采样参数对齐官方 | `deepseek-ai.provider.ts:chat()` | ✅ |
+| 2 | JSON Mode 结构化输出 | `deepseek-ai.provider.ts:chat()` | ✅ |
+| 3 | System Prompt 深化设计 | `deepseek-ai.provider.ts` 常量 | ✅ |
+| 4 | Few-shot 示例注入 | `deepseek-ai.provider.ts` 常量 + userMessage | ✅ |
+| 5 | RAG 向量语义搜索 | `ai.service.ts` | ✅ |
+| 6 | Thinking 推理模式 | `deepseek-ai.provider.ts:chat()` | ✅ |
+| 7 | 上下文缓存利用 | 无需改动（静态 System Prompt） | ✅ (自动) |
+| 8 | 输出验证 + 重试 | `deepseek-ai.provider.ts:validateOutput()+chatWithRetry()` | ✅ |
+
+### 详细改动
+
+**采样参数：** temperature: 0.7 → 1.0, top_p: 未设置 → 1.0, max_tokens: 2048 → 4096。DeepSeek 官方明确声明 MoE 模型不应照搬 GPT/Claude 低温参数。
+
+**JSON Mode：** 新增 `response_format: { type: 'json_object' }`，模型保证输出合法 JSON。
+
+**System Prompt：** 四段式结构 — 角色定位（望江街道政务服务中心） → 正面规范（6条含跨部门协调） → 禁止事项（4条） → JSON Schema。
+
+**Few-shot：** 按工单分类动态匹配 `REPLY_FEWSHOT_EXAMPLES`（`城市治理` / `default`）及 `SUMMARY_FEWSHOT_EXAMPLE`。
+
+**RAG 向量搜索：** 从 `prisma.knowledgeDocument.findMany({ take: 3 })` 改为 `knowledgeService.search(searchQuery, 5)`。模块变更：`knowledge.module.ts` 新增 exports，`ai.module.ts` 导入 KnowledgeModule，`ai.service.ts` 注入 KnowledgeService。
+
+**Thinking 推理：** 紧急工单（`URGENT`）自动启用 `thinking: { type: 'enabled' }` + `reasoning_effort: 'high'`。
+
+**上下文缓存：** DeepSeek 自动缓存静态 System Prompt，输入成本降低约 120 倍（$0.435 → $0.003625）。
+
+**验证+重试：** 4 层校验（长度≥80字 → 置信度≥0.6 → 禁止词正则 → 紧急引用检查）→ 最多 2 次重试 → 降级 mock。双层安全兜底。
+
+### 自检结果
+
+```
+✅ pnpm test         — 25 tests passed (frontend 3 + backend 20 + e2e 2)
+✅ pnpm lint         — 0 errors, 0 warnings
+✅ pnpm build        — TypeScript 编译 + Vite 构建成功
+✅ Backend Health    — http://localhost:3000/api/health → ok
+✅ DeepSeek API      — 回复建议/摘要调用成功，置信度 0.90-0.95
+```
+
+### 端到端验证
+
+```
+POST /api/ai/tickets/ticket-1001/reply-suggestion
+→ model: deepseek-v4-pro, confidence: 0.90
+→ 引用了知识库管理规范，提供了4条具体可操作建议，明确了主责/配合部门
+
+POST /api/ai/tickets/ticket-1002/summary
+→ model: deepseek-v4-pro, confidence: 0.95
+→ 结构化摘要：问题提炼 + 当前状态 + 下一步建议 + 紧急程度评估
+```
+
+### 优化前 vs 优化后对比
+
+| 维度 | 优化前 | 优化后 |
+|------|--------|--------|
+| temperature | 0.7（照搬 GPT） | 1.0（DeepSeek 官方推荐） |
+| JSON 输出 | Prompt 要求 + 解析降级 | response_format 强制 + 合法 JSON |
+| System Prompt | 5 条规则，无禁止项 | 角色+规范+禁止+Schema 四段式 |
+| Few-shot | 无 | 按工单分类动态匹配 |
+| 知识检索 | 最新 3 篇（可能不相关） | 向量语义搜索 5 篇（最相关） |
+| 推理模式 | 无 | URGENT 自动启用 thinking |
+| 输出校验 | 无 | 4 层校验 + 2 次重试 |
+| 降级兜底 | AiService 单层 fallback | Provider 内重试 + AiService fallback 双层 |
+
+### 后续优化空间
+
+- **引用接地**：验证 AI 输出的 citations 是否与知识库文档标题匹配
+- **分类示例扩展**：为更多工单分类补充 Few-shot 示例
+- **thinking_max 模式**：对涉及 3+ 部门协调的工单启用更深层推理
+- **成本监控**：记录每次 API 调用的 token 用量统计
+
+---
+
+## 历史修改报告
+
+## 本次修改报告
+
+完成 README 下一步建议中的全部四项：
+
+1. **真实 embedding 模型和向量检索召回链路** — 抽象 `EmbeddingProvider` 接口，支持本地确定性哈希（16 维，默认）和 OpenAI 兼容 API（1536 维），通过环境变量切换。新增 `GET /api/knowledge/search?q=...&limit=5` 向量语义搜索端点，余弦相似度排序。前端知识面板添加搜索输入。
+
+2. **Dockerfile、Nginx、CI/CD 和部署文档** — 后端多阶段 Dockerfile（pnpm 依赖 → Prisma 生成 → NestJS 编译 → 生产运行），前端多阶段 Dockerfile（Vite 构建 → Nginx 静态服务 + API 反向代理）。`docker-compose.prod.yml` 一键生产部署。GitHub Actions CI/CD（lint → test → build → Docker 构建验证）。
+
+3. **审计日志** — 新增 `AuditLog` 模型和 `AuditAction` 枚举。`AuditInterceptor` 配合 `@Auditable()` 装饰器自动捕获业务操作（VIEW/CREATE/UPDATE/AI_GENERATE）。批量缓写（5 秒或 50 条触发）。`GET /api/audit-logs` 管理员查询。AiLog 表增加 `actorId` 记录 AI 操作者。
+
+4. **细粒度字段级权限和操作回放** — 新增权限矩阵（admin/agent/reviewer → 字段读写），`FieldPermissionsInterceptor` 自动过滤响应字段。`POST /api/tickets/:id/replay` 基于审计日志的事件链恢复到指定时间点的工单状态。
+
+### 验证结果
+
+```text
+pnpm test
+结果：通过；前端 1 个测试文件、3 个测试，后端 5 个测试套件、20 个测试，e2e 1 个测试套件、2 个测试。
+
+pnpm test:backend
+结果：通过；5 个测试套件，20 个测试。
+
+pnpm test:e2e:backend
+结果：通过；1 个测试套件，2 个测试。
+
+pnpm lint
+结果：通过；前后端 lint 均通过。
+
+pnpm build
+结果：通过；前端 Vite 构建保留现有 chunk size warning，不影响本次功能。
+```
