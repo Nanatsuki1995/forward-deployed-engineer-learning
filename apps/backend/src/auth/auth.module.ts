@@ -4,6 +4,7 @@ import type { JwtSignOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { FieldPermissionsInterceptor } from './field-permissions.interceptor';
 import { JwtStrategy } from './jwt.strategy';
 import { RolesGuard } from './roles.guard';
 
@@ -21,7 +22,12 @@ const jwtExpiresIn = (process.env.JWT_EXPIRES_IN ??
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, RolesGuard],
-  exports: [AuthService, JwtModule, RolesGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    RolesGuard,
+    FieldPermissionsInterceptor,
+  ],
+  exports: [AuthService, JwtModule, RolesGuard, FieldPermissionsInterceptor],
 })
 export class AuthModule {}

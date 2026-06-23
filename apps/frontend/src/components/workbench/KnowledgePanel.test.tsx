@@ -23,6 +23,7 @@ const managePermissions: RolePermissions = {
   canManageKnowledge: true,
   canReviewApproval: true,
   canUpdateTicketStatus: true,
+  canViewAuditLogs: false,
   capabilities: ['知识维护'],
   knowledgeMode: '可维护知识库',
   summary: '拥有完整控制面',

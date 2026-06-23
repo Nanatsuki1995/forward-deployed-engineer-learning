@@ -1,7 +1,7 @@
-import { useRef, useState } from 'react';
-import { UploadCloud } from 'lucide-react';
-import { Button, Card, Input, Space, Tag, Typography } from 'antd';
-import type { KnowledgeDocument } from '../../api/client';
+import { useRef, useState, useCallback } from 'react';
+import { Search, UploadCloud } from 'lucide-react';
+import { Button, Card, Input, List, Space, Tag, Typography } from 'antd';
+import { api, type KnowledgeDocument, type KnowledgeSearchResult } from '../../api/client';
 import type { RolePermissions } from '../../lib/workbench';
 
 export function KnowledgePanel({
@@ -23,6 +23,38 @@ export function KnowledgePanel({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [source, setSource] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<KnowledgeSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearch = useCallback(
+    (query: string) => {
+      setSearchQuery(query);
+
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+
+      if (!query.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      searchTimerRef.current = setTimeout(async () => {
+        setIsSearching(true);
+        try {
+          const results = await api.searchKnowledge(query.trim(), 5);
+          setSearchResults(results);
+        } catch {
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+    },
+    [],
+  );
 
   async function submitUpload() {
     if (!selectedFile || !permissions.canManageKnowledge) {
@@ -67,6 +99,45 @@ export function KnowledgePanel({
         </Tag>
       }
     >
+      <div className="knowledge-search">
+        <Input
+          allowClear
+          placeholder="语义搜索知识库..."
+          prefix={<Search size={16} />}
+          value={searchQuery}
+          onChange={(e) => handleSearch(e.target.value)}
+        />
+      </div>
+
+      {searchResults.length > 0 && (
+        <List
+          className="knowledge-search-results"
+          dataSource={searchResults}
+          loading={isSearching}
+          renderItem={(item) => (
+            <List.Item>
+              <List.Item.Meta
+                title={
+                  <Space>
+                    <Typography.Text strong>{item.document.title}</Typography.Text>
+                    <Tag color="blue">{item.score.toFixed(4)}</Tag>
+                  </Space>
+                }
+                description={
+                  <Typography.Paragraph
+                    ellipsis={{ rows: 2 }}
+                    type="secondary"
+                  >
+                    {item.chunk.content}
+                  </Typography.Paragraph>
+                }
+              />
+            </List.Item>
+          )}
+          size="small"
+        />
+      )}
+
       {permissions.canManageKnowledge ? (
         <div className="knowledge-upload-form">
           <input

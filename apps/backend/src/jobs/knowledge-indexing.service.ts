@@ -1,6 +1,10 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { KnowledgeStatus, type KnowledgeDocument } from '@prisma/client';
-import { parseMarkdownKnowledge } from '../knowledge/knowledge-indexing';
+import { EmbeddingService } from '../embedding/embedding.service';
+import {
+  parseMarkdownKnowledge,
+  withEmbeddings,
+} from '../knowledge/knowledge-indexing';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisCacheService } from '../redis/redis-cache.service';
 
@@ -14,6 +18,7 @@ export class KnowledgeIndexingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cache: RedisCacheService,
+    private readonly embeddingService: EmbeddingService,
   ) {}
 
   async indexDocument(documentId: string): Promise<KnowledgeDocument> {
@@ -26,6 +31,9 @@ export class KnowledgeIndexingService {
     }
 
     const parsed = parseMarkdownKnowledge(document.content);
+    const chunkContents = parsed.chunks.map((c) => c.content);
+    const embeddings = await this.embeddingService.embed(chunkContents);
+    const chunksWithEmbeddings = withEmbeddings(parsed.chunks, embeddings);
 
     try {
       const updatedDocument = await this.prisma.$transaction(async (prisma) => {
@@ -36,10 +44,10 @@ export class KnowledgeIndexingService {
           data: {
             content: parsed.content,
             status: KnowledgeStatus.INDEXED,
-            chunks: parsed.chunks.length,
+            chunks: chunksWithEmbeddings.length,
             citations: parsed.citations,
             chunkRecords: {
-              create: parsed.chunks,
+              create: chunksWithEmbeddings,
             },
           },
         });

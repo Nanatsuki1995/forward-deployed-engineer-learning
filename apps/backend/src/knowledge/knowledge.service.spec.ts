@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { KnowledgeStatus } from '@prisma/client';
+import { EmbeddingService } from '../embedding/embedding.service';
 import { KnowledgeIndexingQueue } from '../jobs/knowledge-indexing.queue';
 import { KnowledgeIndexingService } from '../jobs/knowledge-indexing.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -36,7 +37,7 @@ type CreateKnowledgeDocumentMock = (
 type FindManyKnowledgeDocumentMock = () => Promise<StoredKnowledgeDocument[]>;
 
 describe('parseMarkdownKnowledge', () => {
-  it('normalizes markdown, splits chunks and builds embeddings', () => {
+  it('normalizes markdown and splits into text chunks without embeddings', () => {
     const parsed = parseMarkdownKnowledge(
       '# 标题\n\n- 第一段内容\n\n[引用](https://example.com)',
     );
@@ -46,8 +47,9 @@ describe('parseMarkdownKnowledge', () => {
     expect(parsed.content).not.toContain('#');
     expect(parsed.citations).toEqual(['标题', '第一段内容', '引用']);
     expect(parsed.chunks).toHaveLength(1);
-    expect(parsed.chunks[0]?.embedding).toHaveLength(16);
+    expect(parsed.chunks[0]?.position).toBe(0);
     expect(parsed.chunks[0]?.startOffset).toBe(0);
+    expect(parsed.chunks[0]?.content).toContain('标题');
   });
 });
 
@@ -67,6 +69,10 @@ describe('KnowledgeService', () => {
   };
   let indexerMock: {
     indexDocument: jest.Mock;
+  };
+  let embeddingMock: {
+    embed: jest.Mock;
+    embedSingle: jest.Mock;
   };
   let service: KnowledgeService;
 
@@ -108,12 +114,21 @@ describe('KnowledgeService', () => {
     indexerMock = {
       indexDocument: jest.fn(),
     };
+    embeddingMock = {
+      embed: jest
+        .fn()
+        .mockResolvedValue(Array.from({ length: 16 }, () => 0.25)),
+      embedSingle: jest
+        .fn()
+        .mockResolvedValue(Array.from({ length: 16 }, () => 0.25)),
+    };
 
     service = new KnowledgeService(
       prismaMock as unknown as PrismaService,
       cacheMock as unknown as RedisCacheService,
       queueMock as unknown as KnowledgeIndexingQueue,
       indexerMock as unknown as KnowledgeIndexingService,
+      embeddingMock as unknown as EmbeddingService,
     );
   });
 

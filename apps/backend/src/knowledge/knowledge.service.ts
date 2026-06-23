@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { KnowledgeStatus, type KnowledgeDocument } from '@prisma/client';
 import { mapKnowledgeDocument } from '../data/workbench.mapper';
+import { EmbeddingService } from '../embedding/embedding.service';
 import {
   KNOWLEDGE_DOCUMENTS_CACHE_KEY,
   KNOWLEDGE_DOCUMENTS_CACHE_TTL_SECONDS,
@@ -32,6 +33,7 @@ export class KnowledgeService {
     private readonly cache: RedisCacheService,
     private readonly indexingQueue: KnowledgeIndexingQueue,
     private readonly indexer: KnowledgeIndexingService,
+    private readonly embeddingService: EmbeddingService,
   ) {}
 
   async findAll() {
@@ -46,6 +48,39 @@ export class KnowledgeService {
         return documents.map(mapKnowledgeDocument);
       },
     );
+  }
+
+  async search(query: string, limit = 5) {
+    const queryEmbedding = await this.embeddingService.embedSingle(query);
+
+    const chunks = await this.prisma.knowledgeChunk.findMany({
+      include: {
+        document: true,
+      },
+      where: {
+        document: {
+          status: KnowledgeStatus.INDEXED,
+        },
+      },
+    });
+
+    const scored = chunks
+      .map((chunk) => ({
+        chunk: {
+          id: chunk.id,
+          position: chunk.position,
+          content: chunk.content,
+          startOffset: chunk.startOffset,
+          endOffset: chunk.endOffset,
+        },
+        document: mapKnowledgeDocument(chunk.document),
+        score: cosineSimilarity(queryEmbedding, chunk.embedding),
+      }))
+      .filter((item) => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    return scored;
   }
 
   async create(input: CreateKnowledgeDocumentDto) {
@@ -145,4 +180,28 @@ function deriveTitleFromFileName(fileName: string): string {
   const title = withoutPath.replace(/\.(md|markdown|txt)$/i, '').trim();
 
   return title || 'uploaded-document';
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length === 0 || b.length === 0) {
+    return 0;
+  }
+
+  const dims = Math.min(a.length, b.length);
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < dims; i += 1) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+
+  const magnitude = Math.sqrt(normA) * Math.sqrt(normB);
+  if (magnitude === 0) {
+    return 0;
+  }
+
+  return Number((dotProduct / magnitude).toFixed(6));
 }

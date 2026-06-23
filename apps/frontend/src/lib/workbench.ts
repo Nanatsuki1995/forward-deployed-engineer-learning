@@ -45,6 +45,7 @@ export interface RolePermissions {
   canManageKnowledge: boolean;
   canReviewApproval: boolean;
   canUpdateTicketStatus: boolean;
+  canViewAuditLogs: boolean;
   capabilities: string[];
   knowledgeMode: string;
   summary: string;
@@ -59,7 +60,8 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
         canManageKnowledge: true,
         canReviewApproval: true,
         canUpdateTicketStatus: true,
-        capabilities: ['全部工单', '知识维护', 'AI 操作', '状态流转'],
+        canViewAuditLogs: true,
+        capabilities: ['全部工单', '知识维护', 'AI 操作', '状态流转', '审计日志'],
         knowledgeMode: '可维护知识库',
         summary: '拥有完整控制面',
       };
@@ -70,6 +72,7 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
         canManageKnowledge: true,
         canReviewApproval: false,
         canUpdateTicketStatus: true,
+        canViewAuditLogs: false,
         capabilities: ['工单处理', '知识维护', 'AI 操作'],
         knowledgeMode: '可维护知识库',
         summary: '可处理和流转工单',
@@ -81,6 +84,7 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
         canManageKnowledge: false,
         canReviewApproval: true,
         canUpdateTicketStatus: true,
+        canViewAuditLogs: false,
         capabilities: ['审核确认', 'AI 操作', '知识只读'],
         knowledgeMode: '只读知识库',
         summary: '聚焦审核与确认',
@@ -92,6 +96,7 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
         canManageKnowledge: false,
         canReviewApproval: false,
         canUpdateTicketStatus: false,
+        canViewAuditLogs: false,
         capabilities: ['未授权'],
         knowledgeMode: '未授权',
         summary: '需要登录',

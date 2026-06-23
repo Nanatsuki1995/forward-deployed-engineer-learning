@@ -2,12 +2,13 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { AiLogType } from '@prisma/client';
 import { mapAiLog } from '../data/workbench.mapper';
 import { PrismaService } from '../prisma/prisma.service';
+import type { AuthenticatedUser } from '../auth/auth.types';
 
 @Injectable()
 export class AiService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createReplySuggestion(ticketId: string) {
+  async createReplySuggestion(ticketId: string, user?: AuthenticatedUser) {
     const ticket = await this.getTicketOrThrow(ticketId);
     const documents = await this.prisma.knowledgeDocument.findMany({
       take: 2,
@@ -15,8 +16,8 @@ export class AiService {
     });
     const citations = documents.map((document) => document.title);
     const result = [
-      `${ticket.requester}，您好。我们已收到“${ticket.title}”工单。`,
-      `根据当前分类“${ticket.category}”和优先级“${ticket.priority.toLowerCase()}”，建议先确认主责部门、数据权限和人工复核人。`,
+      `${ticket.requester}，您好。我们已收到”${ticket.title}”工单。`,
+      `根据当前分类”${ticket.category}”和优先级”${ticket.priority.toLowerCase()}”，建议先确认主责部门、数据权限和人工复核人。`,
       '系统会保留处理记录、引用来源和人工确认结果，避免 AI 自动执行高风险动作。',
     ].join('\n');
 
@@ -29,13 +30,14 @@ export class AiService {
         result,
         confidence: ticket.priority === 'URGENT' ? 0.72 : 0.84,
         citations,
+        actorId: user?.id ?? null,
       },
     });
 
     return mapAiLog(log);
   }
 
-  async createSummary(ticketId: string) {
+  async createSummary(ticketId: string, user?: AuthenticatedUser) {
     const ticket = await this.getTicketOrThrow(ticketId);
     const result = [
       `工单摘要：${ticket.description}`,
@@ -52,6 +54,7 @@ export class AiService {
         result,
         confidence: 0.88,
         citations: ticket.tags,
+        actorId: user?.id ?? null,
       },
     });
 

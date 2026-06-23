@@ -10,6 +10,7 @@ import type {
   TicketStatus,
 } from '../api/client';
 import { useAuth } from '../auth/useAuth';
+import { AuditLogPanel } from '../components/workbench/AuditLogPanel';
 import { KnowledgePanel } from '../components/workbench/KnowledgePanel';
 import { MetricGrid } from '../components/workbench/MetricGrid';
 import { RoadmapPanel } from '../components/workbench/RoadmapPanel';
@@ -268,6 +269,14 @@ export function HomePage() {
           <RoadmapPanel />
         </Col>
       </Row>
+
+      {permissions.canViewAuditLogs && (
+        <Row gutter={[18, 18]}>
+          <Col span={24}>
+            <AuditLogPanel />
+          </Col>
+        </Row>
+      )}
     </Space>
   );
 }

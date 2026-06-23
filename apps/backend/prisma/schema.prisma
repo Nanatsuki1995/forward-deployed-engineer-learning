@@ -44,6 +44,17 @@ enum AiLogType {
   SUMMARY
 }
 
+enum AuditAction {
+  VIEW
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  TOKEN_REFRESH
+  AI_GENERATE
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -53,9 +64,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  assignedTickets Ticket[] @relation("TicketAssignee")
-  requestedTickets Ticket[] @relation("TicketRequesterUser")
+  assignedTickets Ticket[]     @relation("TicketAssignee")
+  requestedTickets Ticket[]    @relation("TicketRequesterUser")
   refreshTokens    RefreshToken[]
+  auditLogs        AuditLog[]
+  aiLogs           AiLog[]
 }
 
 model RefreshToken {
@@ -154,11 +167,35 @@ model AiLog {
   result        String
   confidence    Float
   citations     String[]  @default([])
+  actorId       String?
   createdAt     DateTime  @default(now())
 
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([ticketId])
   @@index([type])
+  @@index([createdAt])
+  @@index([actorId])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  actorId    String
+  actorName  String
+  actorRole  String
+  action     AuditAction
+  resource   String
+  resourceId String?
+  method     String
+  path       String
+  metadata   Json        @default("{}")
+  createdAt  DateTime    @default(now())
+
+  user User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([resource])
   @@index([createdAt])
 }

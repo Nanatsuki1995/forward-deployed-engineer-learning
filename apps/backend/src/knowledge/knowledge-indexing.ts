@@ -1,5 +1,4 @@
 const MAX_CHUNK_LENGTH = 480;
-const EMBEDDING_DIMENSIONS = 16;
 
 export interface KnowledgeChunkInput {
   position: number;
@@ -9,9 +8,16 @@ export interface KnowledgeChunkInput {
   embedding: number[];
 }
 
+export interface TextChunk {
+  position: number;
+  content: string;
+  startOffset: number;
+  endOffset: number;
+}
+
 export function parseMarkdownKnowledge(markdown: string): {
   content: string;
-  chunks: KnowledgeChunkInput[];
+  chunks: TextChunk[];
   citations: string[];
 } {
   const content = normalizeMarkdownText(markdown);
@@ -20,7 +26,6 @@ export function parseMarkdownKnowledge(markdown: string): {
     content: chunk.content,
     startOffset: chunk.startOffset,
     endOffset: chunk.endOffset,
-    embedding: createDeterministicEmbedding(chunk.content),
   }));
 
   return {
@@ -28,6 +33,16 @@ export function parseMarkdownKnowledge(markdown: string): {
     chunks: chunks.length > 0 ? chunks : [createEmptyChunk()],
     citations: extractCitations(content),
   };
+}
+
+export function withEmbeddings(
+  chunks: TextChunk[],
+  embeddings: number[][],
+): KnowledgeChunkInput[] {
+  return chunks.map((chunk, index) => ({
+    ...chunk,
+    embedding: embeddings[index] ?? Array.from({ length: 16 }, () => 0),
+  }));
 }
 
 function normalizeMarkdownText(markdown: string): string {
@@ -134,32 +149,11 @@ function extractCitations(content: string): string[] {
   return headings.length > 0 ? headings : ['上传文档'];
 }
 
-function createDeterministicEmbedding(content: string): number[] {
-  const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0);
-
-  for (let index = 0; index < content.length; index += 1) {
-    const code = content.charCodeAt(index);
-    const bucket = code % EMBEDDING_DIMENSIONS;
-    vector[bucket] += ((code * (index + 1)) % 997) / 997;
-  }
-
-  const magnitude = Math.sqrt(
-    vector.reduce((sum, value) => sum + value * value, 0),
-  );
-
-  if (!magnitude) {
-    return vector;
-  }
-
-  return vector.map((value) => Number((value / magnitude).toFixed(6)));
-}
-
-function createEmptyChunk(): KnowledgeChunkInput {
+function createEmptyChunk(): TextChunk {
   return {
     position: 0,
     content: '',
     startOffset: 0,
     endOffset: 0,
-    embedding: Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0),
   };
 }

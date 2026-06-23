@@ -64,6 +64,20 @@ export interface KnowledgeDocument {
   createdAt: string;
 }
 
+export interface AuditLog {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+  action: string;
+  resource: string;
+  resourceId: string | null;
+  method: string;
+  path: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
 export interface AiLog {
   id: string;
   ticketId: string;
@@ -74,6 +88,18 @@ export interface AiLog {
   confidence: number;
   citations: string[];
   createdAt: string;
+}
+
+export interface KnowledgeSearchResult {
+  chunk: {
+    id: string;
+    position: number;
+    content: string;
+    startOffset: number;
+    endOffset: number;
+  };
+  document: KnowledgeDocument;
+  score: number;
 }
 
 export interface HealthResponse {
@@ -130,6 +156,10 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
   knowledge: () => request<KnowledgeDocument[]>('/knowledge'),
+  searchKnowledge: (query: string, limit = 5) =>
+    request<KnowledgeSearchResult[]>(
+      `/knowledge/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+    ),
   uploadKnowledgeDocument: (input: {
     file: File;
     source?: string;
@@ -153,6 +183,18 @@ export const api = {
     });
   },
   aiLogs: () => request<AiLog[]>('/ai/logs'),
+  auditLogs: (filters?: {
+    actorId?: string;
+    action?: string;
+    resource?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.actorId) params.set('actorId', filters.actorId);
+    if (filters?.action) params.set('action', filters.action);
+    if (filters?.resource) params.set('resource', filters.resource);
+    const query = params.toString();
+    return request<AuditLog[]>(`/audit-logs${query ? `?${query}` : ''}`);
+  },
   createReplySuggestion: (ticketId: string) =>
     request<AiLog>(`/ai/tickets/${ticketId}/reply-suggestion`, {
       method: 'POST',

@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import { KnowledgeStatus } from '@prisma/client';
+import { EmbeddingService } from '../embedding/embedding.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { RedisCacheService } from '../redis/redis-cache.service';
 import type { KnowledgeChunkInput } from '../knowledge/knowledge-indexing';
@@ -67,6 +68,7 @@ describe('KnowledgeIndexingService', () => {
     $transaction: jest.MockedFunction<TransactionMock>;
   };
   let cacheMock: { delete: jest.Mock };
+  let embeddingMock: { embed: jest.Mock };
   let service: KnowledgeIndexingService;
 
   beforeEach(() => {
@@ -104,9 +106,15 @@ describe('KnowledgeIndexingService', () => {
     cacheMock = {
       delete: jest.fn().mockResolvedValue(undefined),
     };
+    embeddingMock = {
+      embed: jest
+        .fn()
+        .mockResolvedValue([Array.from({ length: 16 }, () => 0.25)]),
+    };
     service = new KnowledgeIndexingService(
       prismaMock as unknown as PrismaService,
       cacheMock as unknown as RedisCacheService,
+      embeddingMock as unknown as EmbeddingService,
     );
   });
 

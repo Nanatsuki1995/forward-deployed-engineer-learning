@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fde-prod-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fde}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fde_password}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_ticket_assistant}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fde} -d ${POSTGRES_DB:-ai_ticket_assistant}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - fde-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: fde-prod-redis
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - fde-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: fde-prod-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fde}:${POSTGRES_PASSWORD:-fde_password}@postgres:5432/${POSTGRES_DB:-ai_ticket_assistant}
+      REDIS_URL: redis://redis:6379
+      REDIS_ENABLED: "true"
+      REDIS_CONNECT_TIMEOUT_MS: "500"
+      RATE_LIMIT_MAX: "${RATE_LIMIT_MAX:-120}"
+      RATE_LIMIT_WINDOW_SECONDS: "${RATE_LIMIT_WINDOW_SECONDS:-60}"
+      KNOWLEDGE_INDEXING_CONCURRENCY: "${KNOWLEDGE_INDEXING_CONCURRENCY:-2}"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-1d}
+      REFRESH_TOKEN_EXPIRES_IN_DAYS: ${REFRESH_TOKEN_EXPIRES_IN_DAYS:-7}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fde-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: fde-prod-frontend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - fde-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  fde-network:
+    driver: bridge

@@ -287,7 +287,7 @@ describe('AuthService', () => {
 });
 
 function createPrismaUser(overrides: Partial<PrismaUser> = {}): PrismaUser {
-  const now = new Date('2026-06-11T00:00:00.000Z');
+  const now = new Date();
 
   return {
     id: 'user-1',
@@ -304,13 +304,13 @@ function createPrismaUser(overrides: Partial<PrismaUser> = {}): PrismaUser {
 function createRefreshToken(
   overrides: Partial<RefreshTokenRecord> = {},
 ): RefreshTokenRecord {
-  const now = new Date('2026-06-11T00:00:00.000Z');
+  const now = new Date();
 
   return {
     id: 'refresh-token-id',
     userId: 'user-1',
     tokenHash: 'hashed-refresh-token',
-    expiresAt: new Date('2026-06-18T00:00:00.000Z'),
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     revokedAt: null,
     createdAt: now,
     updatedAt: now,

@@ -23,7 +23,12 @@
     "db:seed": "pnpm --filter backend prisma:seed",
     "db:studio": "pnpm --filter backend prisma:studio",
     "infra:up": "docker compose up -d postgres redis",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "docker:build:backend": "docker build -f apps/backend/Dockerfile -t fde-backend .",
+    "docker:build:frontend": "docker build -f apps/frontend/Dockerfile -t fde-frontend .",
+    "docker:build": "pnpm docker:build:backend && pnpm docker:build:frontend",
+    "docker:up": "docker compose -f docker-compose.prod.yml up -d",
+    "docker:down": "docker compose -f docker-compose.prod.yml down"
   },
   "engines": {
     "node": ">=22.0.0",
