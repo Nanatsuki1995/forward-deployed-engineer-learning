@@ -1,4 +1,4 @@
-import { KeyRound, LogIn, Mail, UserRound } from 'lucide-react';
+import { MailOutlined, SafetyCertificateOutlined, LoginOutlined, UserOutlined } from '@ant-design/icons';
 import {
   Alert,
   Button,
@@ -66,7 +66,7 @@ export function LoginPage() {
       <section className="login-panel">
         <div className="login-heading">
           <div className="login-mark">
-            <KeyRound size={28} />
+            <SafetyCertificateOutlined style={{ fontSize: 28 }} />
           </div>
           <div>
             <Typography.Text className="eyebrow">Secure Workspace</Typography.Text>
@@ -91,7 +91,7 @@ export function LoginPage() {
             <Input
               autoComplete="email"
               inputMode="email"
-              prefix={<Mail size={18} />}
+              prefix={<MailOutlined />}
               size="large"
             />
           </Form.Item>
@@ -103,7 +103,7 @@ export function LoginPage() {
           >
             <Input.Password
               autoComplete="current-password"
-              prefix={<KeyRound size={18} />}
+              prefix={<SafetyCertificateOutlined />}
               size="large"
             />
           </Form.Item>
@@ -112,7 +112,7 @@ export function LoginPage() {
             <Alert
               className="login-alert"
               showIcon
-              title={submitError ?? authError}
+              message={submitError ?? authError}
               type="error"
             />
           ) : null}
@@ -120,7 +120,7 @@ export function LoginPage() {
           <Button
             block
             htmlType="submit"
-            icon={<LogIn size={18} />}
+            icon={<LoginOutlined />}
             loading={isSubmitting}
             size="large"
             type="primary"
@@ -129,7 +129,7 @@ export function LoginPage() {
           </Button>
         </Form>
 
-        <Space className="demo-section" orientation="vertical" size={10}>
+        <Space className="demo-section" direction="vertical" size={10}>
           <Typography.Text strong>演示账号</Typography.Text>
           <Segmented
             block
@@ -137,7 +137,7 @@ export function LoginPage() {
             options={demoAccounts.map((account) => ({
               label: (
                 <span className="demo-option">
-                  <UserRound size={16} />
+                  <UserOutlined style={{ fontSize: 16 }} />
                   <strong>{account.label}</strong>
                   <small>{account.email}</small>
                 </span>

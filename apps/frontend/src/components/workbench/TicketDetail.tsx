@@ -1,4 +1,4 @@
-import { Bot, CheckCircle2, Gauge, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { CheckCircleOutlined, DashboardOutlined, RobotOutlined, SafetyCertificateOutlined, WarningOutlined } from '@ant-design/icons';
 import { MarkdownViewer } from '../MarkdownViewer';
 import {
   Alert,
@@ -107,12 +107,12 @@ export function TicketDetail({
           className="permission-callout"
           icon={
             canResolveApproval ? (
-              <ShieldCheck size={18} />
+              <SafetyCertificateOutlined />
             ) : (
-              <ShieldAlert size={18} />
+              <WarningOutlined />
             )
           }
-          title={
+          message={
             canResolveApproval
               ? '当前角色可以复核待审核工单并推进状态。'
               : '当前角色只能查看待审核工单，不能代替审核人确认。'
@@ -125,7 +125,7 @@ export function TicketDetail({
       <Space className="ai-actions" id="ai" wrap>
         <Button
           disabled={!permissions.canGenerateAi}
-          icon={<Bot size={18} />}
+          icon={<RobotOutlined />}
           loading={isGenerating}
           onClick={onGenerateReply}
           type="primary"
@@ -134,7 +134,7 @@ export function TicketDetail({
         </Button>
         <Button
           disabled={!permissions.canGenerateAi}
-          icon={<Gauge size={18} />}
+          icon={<DashboardOutlined />}
           loading={isGenerating}
           onClick={onGenerateSummary}
         >
@@ -144,7 +144,7 @@ export function TicketDetail({
 
       <section className="ai-output">
         <Space align="center" wrap>
-          <CheckCircle2 size={18} />
+          <CheckCircleOutlined style={{ fontSize: 18 }} />
           <Typography.Title level={4}>最近 AI 输出</Typography.Title>
           {latestAiLog ? <Tag color="green">{latestAiLogLabel}</Tag> : null}
         </Space>

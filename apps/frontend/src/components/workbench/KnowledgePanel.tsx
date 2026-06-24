@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback } from 'react';
-import { Bot, Search, UploadCloud } from 'lucide-react';
+import { CloudUploadOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
 import { Button, Card, Input, List, Space, Tag, Typography } from 'antd';
 import { api, type KnowledgeDocument, type KnowledgeSearchResult } from '../../api/client';
 import type { RolePermissions } from '../../lib/workbench';
@@ -93,9 +93,9 @@ export function KnowledgePanel({
         </div>
       }
       extra={
-        <Tag color={permissions.canManageKnowledge ? 'green' : 'gold'} icon={null}>
+        <Tag color={permissions.canManageKnowledge ? 'green' : 'gold'}>
           <Space size={6}>
-            <UploadCloud size={16} />
+            <CloudUploadOutlined />
             {permissions.knowledgeMode}
           </Space>
         </Tag>
@@ -105,7 +105,7 @@ export function KnowledgePanel({
         <Input
           allowClear
           placeholder="语义搜索知识库..."
-          prefix={<Search size={16} />}
+          prefix={<SearchOutlined />}
           value={searchQuery}
           onChange={(e) => handleSearch(e.target.value)}
         />
@@ -149,7 +149,7 @@ export function KnowledgePanel({
             onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
             type="file"
           />
-          <Space className="knowledge-upload-row" orientation="vertical" size={10}>
+          <Space className="knowledge-upload-row" direction="vertical" size={10}>
             <div className="knowledge-upload-meta">
               <Input
                 allowClear
@@ -166,7 +166,7 @@ export function KnowledgePanel({
             </div>
             <div className="knowledge-upload-actions">
               <Button
-                icon={<UploadCloud size={16} />}
+                icon={<CloudUploadOutlined />}
                 onClick={() => fileInputRef.current?.click()}
               >
                 {selectedFile ? selectedFile.name : '选择 Markdown 文件'}
@@ -197,7 +197,7 @@ export function KnowledgePanel({
               <Tag>{document.citations.length} citations</Tag>
               {document.content && (
                 <Button
-                  icon={<Bot size={14} />}
+                  icon={<RobotOutlined />}
                   onClick={() =>
                     setExpandedDoc(
                       expandedDoc === document.id ? null : document.id,

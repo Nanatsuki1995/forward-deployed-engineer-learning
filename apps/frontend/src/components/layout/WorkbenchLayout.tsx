@@ -1,87 +1,218 @@
 import {
-  Bot,
-  Database,
-  FileText,
-  LogOut,
-  TicketCheck,
-  Users,
-} from 'lucide-react';
-import { Button, Layout, Menu, Space, Tag, Typography } from 'antd';
+  AuditOutlined,
+  CheckSquareOutlined,
+  DashboardOutlined,
+  FileTextOutlined,
+  LogoutOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
+  NodeIndexOutlined,
+  TeamOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import {
+  Avatar,
+  Breadcrumb,
+  Button,
+  Dropdown,
+  Flex,
+  Layout,
+  Menu,
+  Space,
+  Tag,
+  theme,
+  Typography,
+} from 'antd';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import { getRolePermissions, roleLabels } from '../../lib/workbench';
 
-const { Content, Sider } = Layout;
+const { Content, Sider, Header } = Layout;
+
+const navItems = [
+  { key: '/', icon: <DashboardOutlined />, label: '仪表盘' },
+  { key: '/tickets', icon: <CheckSquareOutlined />, label: '工单管理' },
+  { key: '/knowledge', icon: <FileTextOutlined />, label: '知识库' },
+  { key: '/roadmap', icon: <NodeIndexOutlined />, label: '学习路线' },
+  { key: '/audit', icon: <AuditOutlined />, label: '审计日志' },
+];
+
+function pathToBreadcrumb(pathname: string): { title: string }[] {
+  const segments = [
+    { title: '首页' },
+  ];
+
+  const item = navItems.find((n) => n.key === pathname);
+  if (item && item.key !== '/') {
+    segments.push({ title: item.label as string });
+  }
+
+  return segments;
+}
 
 export function WorkbenchLayout({ children }: { children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
   const { logout, user } = useAuth();
   const permissions = getRolePermissions(user?.role);
+  const { token: themeToken } = theme.useToken();
+
+  const selectedKey = '/' + location.pathname.split('/').filter(Boolean)[0] || '/';
+
+  const userMenuItems = [
+    {
+      key: 'role',
+      label: (
+        <Flex vertical gap={2}>
+          <Typography.Text strong>{user?.name ?? '未登录'}</Typography.Text>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            {user ? roleLabels[user.role] : ''}
+          </Typography.Text>
+        </Flex>
+      ),
+      disabled: true,
+    },
+    { type: 'divider' as const },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: '退出登录',
+      onClick: () => void logout(),
+    },
+  ];
 
   return (
-    <Layout className="workbench-layout">
-      <Sider className="workbench-sider" width={280}>
-        <div className="brand">
-          <div className="brand-mark">FDE</div>
-          <div>
-            <strong>AI 工单助手</strong>
-            <span>React + NestJS 学习项目</span>
-          </div>
-        </div>
+    <Layout style={{ minHeight: '100vh' }}>
+      <Sider
+        collapsible
+        collapsed={collapsed}
+        onCollapse={setCollapsed}
+        trigger={null}
+        width={240}
+        style={{
+          background: themeToken.colorBgContainer,
+          borderRight: `1px solid ${themeToken.colorBorderSecondary}`,
+        }}
+      >
+        <Flex
+          align="center"
+          gap={12}
+          style={{
+            height: 64,
+            padding: collapsed ? '0 20px' : '0 24px',
+            borderBottom: `1px solid ${themeToken.colorBorderSecondary}`,
+          }}
+        >
+          <Flex
+            align="center"
+            justify="center"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: themeToken.colorPrimary,
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: 13,
+              flexShrink: 0,
+            }}
+          >
+            FD
+          </Flex>
+          {!collapsed && (
+            <Typography.Text strong style={{ fontSize: 15, whiteSpace: 'nowrap' }}>
+              AI 工单助手
+            </Typography.Text>
+          )}
+        </Flex>
 
         <Menu
-          className="nav-menu"
-          defaultSelectedKeys={['tickets']}
-          items={[
-            {
-              key: 'tickets',
-              icon: <TicketCheck size={18} />,
-              label: <a href="#tickets">工单工作台</a>,
-            },
-            {
-              key: 'knowledge',
-              icon: <FileText size={18} />,
-              label: <a href="#knowledge">知识库</a>,
-            },
-            {
-              key: 'ai',
-              icon: <Bot size={18} />,
-              label: <a href="#ai">AI 调用记录</a>,
-            },
-            {
-              key: 'infra',
-              icon: <Database size={18} />,
-              label: <a href="#infra">部署基础</a>,
-            },
-          ]}
           mode="inline"
+          selectedKeys={[selectedKey]}
+          style={{ borderInlineEnd: 'none', marginTop: 8 }}
+          onClick={({ key }) => navigate(key)}
+          items={navItems.map((item) => ({
+            key: item.key,
+            icon: item.icon,
+            label: item.label,
+          }))}
         />
 
-        <section className="role-card">
-          <Space align="start">
-            <Users size={18} />
-            <div>
-              <Typography.Text type="secondary">当前角色</Typography.Text>
-              <Typography.Title level={5}>
-                {user ? `${user.name} / ${roleLabels[user.role]}` : '未连接'}
-              </Typography.Title>
-            </div>
-          </Space>
-          {user ? <Typography.Text type="secondary">{user.email}</Typography.Text> : null}
-          <Space wrap>
-            {permissions.capabilities.map((capability) => (
-              <Tag color="green" key={capability}>
-                {capability}
-              </Tag>
-            ))}
-          </Space>
-          <Button block icon={<LogOut size={16} />} onClick={() => void logout()}>
-            退出登录
-          </Button>
-        </section>
+        {!collapsed && (
+          <Flex
+            vertical
+            gap={8}
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              left: 16,
+              right: 16,
+              padding: 14,
+              borderRadius: 8,
+              background: themeToken.colorFillAlter,
+            }}
+          >
+            <Space>
+              <TeamOutlined style={{ color: themeToken.colorTextTertiary }} />
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {user ? roleLabels[user.role] : '未连接'}
+              </Typography.Text>
+            </Space>
+            <Flex gap={4} wrap="wrap">
+              {permissions.capabilities.slice(0, 3).map((c) => (
+                <Tag color="green" key={c} style={{ fontSize: 11, margin: 0 }}>
+                  {c}
+                </Tag>
+              ))}
+            </Flex>
+          </Flex>
+        )}
       </Sider>
 
       <Layout>
-        <Content className="workbench-content">{children}</Content>
+        <Header
+          style={{
+            background: themeToken.colorBgContainer,
+            borderBottom: `1px solid ${themeToken.colorBorderSecondary}`,
+            padding: '0 24px',
+            height: 64,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <Flex align="center" gap={16}>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed(!collapsed)}
+            />
+            <Breadcrumb items={pathToBreadcrumb(location.pathname)} />
+          </Flex>
+
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+            <Space style={{ cursor: 'pointer' }}>
+              <Avatar icon={<UserOutlined />} size="small" style={{ background: themeToken.colorPrimary }} />
+              {!collapsed && (
+                <Typography.Text>{user?.name ?? '未登录'}</Typography.Text>
+              )}
+            </Space>
+          </Dropdown>
+        </Header>
+
+        <Content
+          style={{
+            padding: 24,
+            background: themeToken.colorBgLayout,
+            minHeight: 'calc(100vh - 64px)',
+            overflow: 'auto',
+          }}
+        >
+          {children}
+        </Content>
       </Layout>
     </Layout>
   );

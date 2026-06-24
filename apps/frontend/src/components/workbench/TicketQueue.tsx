@@ -1,4 +1,4 @@
-import { Search } from 'lucide-react';
+import { SearchOutlined } from '@ant-design/icons';
 import { Button, Card, Empty, Input, Space, Tag, Typography } from 'antd';
 import type { Ticket } from '../../api/client';
 import { statusLabels } from '../../lib/workbench';
@@ -32,13 +32,13 @@ export function TicketQueue({
             className="ticket-search"
             onChange={(event) => onQueryChange(event.target.value)}
             placeholder="搜索标题、标签、请求方"
-            prefix={<Search size={16} />}
+            prefix={<SearchOutlined />}
             value={query}
           />
         </div>
       }
     >
-      <Space className="ticket-list" orientation="vertical" size={10}>
+      <Space className="ticket-list" direction="vertical" size={10}>
         {tickets.map((ticket) => (
           <Button
             block

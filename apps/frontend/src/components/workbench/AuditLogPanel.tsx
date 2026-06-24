@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Shield } from 'lucide-react';
+import { SafetyOutlined } from '@ant-design/icons';
 import { Card, Table, Tag, Typography } from 'antd';
 import { api, type AuditLog } from '../../api/client';
 
@@ -80,8 +80,8 @@ export function AuditLogPanel() {
         </div>
       }
       extra={
-        <Tag color="blue" icon={null}>
-          <Shield size={14} />
+        <Tag color="blue">
+          <SafetyOutlined />
         </Tag>
       }
     >

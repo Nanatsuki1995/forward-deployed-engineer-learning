@@ -1,4 +1,4 @@
-import { RefreshCw } from 'lucide-react';
+import { ReloadOutlined } from '@ant-design/icons';
 import { Alert, Button, Col, Row, Space, Spin, Typography } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
@@ -195,7 +195,7 @@ export function HomePage() {
   }
 
   return (
-    <Space className="home-page" orientation="vertical" size={18}>
+    <Space className="home-page" direction="vertical" size={20}>
       <header className="topbar">
         <div>
           <Typography.Text className="eyebrow">
@@ -206,16 +206,17 @@ export function HomePage() {
           </Typography.Title>
         </div>
         <Button
-          icon={<RefreshCw size={18} />}
+          icon={<ReloadOutlined />}
           loading={isLoading}
           onClick={() => void loadWorkbench()}
           type="primary"
+          size="large"
         >
           刷新
         </Button>
       </header>
 
-      {error ? <Alert showIcon title={error} type="error" /> : null}
+      {error ? <Alert showIcon message={error} type="error" closable /> : null}
 
       <MetricGrid
         documentsCount={documents.length}
@@ -228,11 +229,11 @@ export function HomePage() {
 
       {isLoading && !tickets.length ? (
         <section className="initial-loading">
-          <Spin description="正在加载工作台" size="large" />
+          <Spin tip="正在加载工作台" size="large" />
         </section>
       ) : null}
 
-      <Row gutter={[18, 18]}>
+      <Row gutter={[20, 20]}>
         <Col lg={9} xs={24}>
           <TicketQueue
             query={query}
@@ -256,7 +257,7 @@ export function HomePage() {
         </Col>
       </Row>
 
-      <Row gutter={[18, 18]}>
+      <Row gutter={[20, 20]}>
         <Col lg={12} xs={24}>
           <KnowledgePanel
             documents={documents}
@@ -271,7 +272,7 @@ export function HomePage() {
       </Row>
 
       {permissions.canViewAuditLogs && (
-        <Row gutter={[18, 18]}>
+        <Row gutter={[20, 20]}>
           <Col span={24}>
             <AuditLogPanel />
           </Col>
