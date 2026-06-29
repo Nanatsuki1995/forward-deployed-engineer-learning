@@ -4,8 +4,10 @@ import { mapAiLog } from '../data/workbench.mapper';
 import { KnowledgeService } from '../knowledge/knowledge.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../auth/auth.types';
+import { AiProviderCallError } from './ai-provider.interface';
 import type { AiProvider, AiProviderOutput } from './ai-provider.interface';
 import { AI_PROVIDER_TOKEN } from './ai-provider.factory';
+import { toAiLogUsageData } from './ai-token-usage';
 import { DeepSeekAiProvider } from './deepseek-ai.provider';
 
 @Injectable()
@@ -72,6 +74,7 @@ export class AiService {
         result: output.result,
         confidence: output.confidence,
         citations,
+        ...toAiLogUsageData(output.usage),
         actorId: user?.id ?? null,
       },
     });
@@ -112,6 +115,7 @@ export class AiService {
         result: output.result,
         confidence: output.confidence,
         citations: output.citations,
+        ...toAiLogUsageData(output.usage),
         actorId: user?.id ?? null,
       },
     });
@@ -124,7 +128,7 @@ export class AiService {
       orderBy: { createdAt: 'desc' },
     });
 
-    return logs.map(mapAiLog);
+    return logs.map((log) => mapAiLog(log, { includeUsage: true }));
   }
 
   private async getTicketOrThrow(ticketId: string) {
@@ -161,6 +165,13 @@ export class AiService {
       this.logger.error(
         `DeepSeek API call failed, falling back to mock: ${errMsg}`,
       );
+
+      if (error instanceof AiProviderCallError) {
+        return {
+          ...fallback,
+          usage: error.usage,
+        };
+      }
 
       return fallback;
     }

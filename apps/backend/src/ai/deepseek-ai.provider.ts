@@ -1,14 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { AiProviderCallError } from './ai-provider.interface';
 import type {
   AiProvider,
   AiProviderOutput,
   AiReplySuggestionInput,
   AiSummaryInput,
+  AiTokenUsage,
 } from './ai-provider.interface';
+import { createEmptyAiTokenUsage, mergeAiTokenUsage } from './ai-token-usage';
 
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
+}
+
+interface ChatCompletionUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+  prompt_cache_hit_tokens?: number;
+  prompt_cache_miss_tokens?: number;
+  completion_tokens_details?: {
+    reasoning_tokens?: number;
+  };
 }
 
 interface ChatCompletionResponse {
@@ -17,6 +31,7 @@ interface ChatCompletionResponse {
       content: string;
     };
   }>;
+  usage?: ChatCompletionUsage;
 }
 
 interface ParsedAiResponse {
@@ -24,6 +39,43 @@ interface ParsedAiResponse {
   confidence?: number;
   citations?: string[];
 }
+
+interface ChatCallResult {
+  content: string;
+  usage?: AiTokenUsage;
+}
+
+interface CostRates {
+  cacheHitInputPerMillionUsd: number;
+  cacheMissInputPerMillionUsd: number;
+  outputPerMillionUsd: number;
+}
+
+const DEEPSEEK_MODEL_COST_RATES: Record<string, CostRates> = {
+  'deepseek-v4-flash': {
+    cacheHitInputPerMillionUsd: 0.0028,
+    cacheMissInputPerMillionUsd: 0.14,
+    outputPerMillionUsd: 0.28,
+  },
+  'deepseek-v4-pro': {
+    cacheHitInputPerMillionUsd: 0.003625,
+    cacheMissInputPerMillionUsd: 0.435,
+    outputPerMillionUsd: 0.87,
+  },
+  'deepseek-chat': {
+    cacheHitInputPerMillionUsd: 0.0028,
+    cacheMissInputPerMillionUsd: 0.14,
+    outputPerMillionUsd: 0.28,
+  },
+  'deepseek-reasoner': {
+    cacheHitInputPerMillionUsd: 0.0028,
+    cacheMissInputPerMillionUsd: 0.14,
+    outputPerMillionUsd: 0.28,
+  },
+};
+
+const ONE_MILLION = 1_000_000;
+const COST_PRECISION = 12;
 
 // ─── 优化后 System Prompts ─────────────────────────────────
 
@@ -169,6 +221,7 @@ export class DeepSeekAiProvider implements AiProvider {
   private readonly apiBase: string;
   private readonly apiKey: string;
   private readonly model: string;
+  private readonly costRates: CostRates | null;
   private readonly maxRetries = 2;
 
   constructor() {
@@ -177,6 +230,7 @@ export class DeepSeekAiProvider implements AiProvider {
     ).replace(/\/$/, '');
     this.apiKey = process.env.DEEPSEEK_API_KEY ?? '';
     this.model = process.env.DEEPSEEK_MODEL ?? 'deepseek-v4-pro';
+    this.costRates = resolveCostRates(this.model);
   }
 
   async generateReplySuggestion(
@@ -249,18 +303,29 @@ export class DeepSeekAiProvider implements AiProvider {
     validation: ValidationContext,
   ): Promise<AiProviderOutput> {
     let lastError: string | undefined;
+    let totalUsage = createEmptyAiTokenUsage();
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       try {
+        totalUsage = mergeAiTokenUsage(
+          totalUsage,
+          createEmptyAiTokenUsage({ apiCallCount: 1 }),
+        );
+
         const rawOutput = await this.chat(messages, enableThinking);
-        const output = this.parseOutput(rawOutput);
+        totalUsage = mergeAiTokenUsage(totalUsage, rawOutput.usage);
+
+        const output = this.parseOutput(rawOutput.content);
         const result = validateOutput(output, validation);
 
         if (result.valid) {
           if (attempt > 0) {
             this.logger.log(`Succeeded on retry ${attempt}`);
           }
-          return output;
+          return {
+            ...output,
+            usage: totalUsage,
+          };
         }
 
         lastError = result.reason;
@@ -279,7 +344,10 @@ export class DeepSeekAiProvider implements AiProvider {
     this.logger.error(
       `All ${this.maxRetries + 1} attempts failed. Last error: ${lastError}`,
     );
-    throw new Error(`DeepSeek API call failed after retries: ${lastError}`);
+    throw new AiProviderCallError(
+      `DeepSeek API call failed after retries: ${lastError}`,
+      totalUsage,
+    );
   }
 
   // ─── API 调用 ────────────────────────────────────────────
@@ -287,7 +355,7 @@ export class DeepSeekAiProvider implements AiProvider {
   private async chat(
     messages: ChatMessage[],
     enableThinking: boolean,
-  ): Promise<string> {
+  ): Promise<ChatCallResult> {
     const url = `${this.apiBase}/chat/completions`;
 
     this.logger.log(
@@ -339,10 +407,71 @@ export class DeepSeekAiProvider implements AiProvider {
         throw new Error('DeepSeek API returned empty response');
       }
 
-      return content;
+      return {
+        content,
+        usage: this.parseUsage(data.usage),
+      };
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  // ─── Token / 成本统计 ────────────────────────────────────
+
+  private parseUsage(usage: ChatCompletionUsage | undefined): AiTokenUsage {
+    if (!usage) {
+      return createEmptyAiTokenUsage();
+    }
+
+    const promptTokens = normalizeTokenCount(usage.prompt_tokens);
+    const completionTokens = normalizeTokenCount(usage.completion_tokens);
+    const cachedPromptTokens = normalizeTokenCount(
+      usage.prompt_cache_hit_tokens,
+    );
+    const cacheMissPromptTokens =
+      typeof usage.prompt_cache_miss_tokens === 'number'
+        ? normalizeTokenCount(usage.prompt_cache_miss_tokens)
+        : Math.max(promptTokens - cachedPromptTokens, 0);
+    const totalTokens =
+      typeof usage.total_tokens === 'number'
+        ? normalizeTokenCount(usage.total_tokens)
+        : promptTokens + completionTokens;
+    const reasoningTokens = normalizeTokenCount(
+      usage.completion_tokens_details?.reasoning_tokens,
+    );
+
+    return createEmptyAiTokenUsage({
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      cachedPromptTokens,
+      cacheMissPromptTokens,
+      reasoningTokens,
+      estimatedCostUsd: this.estimateCostUsd({
+        cachedPromptTokens,
+        cacheMissPromptTokens,
+        completionTokens,
+      }),
+    });
+  }
+
+  private estimateCostUsd(input: {
+    cachedPromptTokens: number;
+    cacheMissPromptTokens: number;
+    completionTokens: number;
+  }): number | null {
+    if (!this.costRates) {
+      return null;
+    }
+
+    const rawCost =
+      (input.cachedPromptTokens * this.costRates.cacheHitInputPerMillionUsd +
+        input.cacheMissPromptTokens *
+          this.costRates.cacheMissInputPerMillionUsd +
+        input.completionTokens * this.costRates.outputPerMillionUsd) /
+      ONE_MILLION;
+
+    return Number(rawCost.toFixed(COST_PRECISION));
   }
 
   // ─── JSON 解析 ───────────────────────────────────────────
@@ -389,4 +518,48 @@ export class DeepSeekAiProvider implements AiProvider {
       );
     }
   }
+}
+
+function resolveCostRates(model: string): CostRates | null {
+  const defaultRates = DEEPSEEK_MODEL_COST_RATES[model];
+  const rates: Partial<CostRates> = {
+    cacheHitInputPerMillionUsd:
+      parseEnvRate('AI_COST_CACHE_HIT_INPUT_PER_MILLION_USD') ??
+      defaultRates?.cacheHitInputPerMillionUsd,
+    cacheMissInputPerMillionUsd:
+      parseEnvRate('AI_COST_CACHE_MISS_INPUT_PER_MILLION_USD') ??
+      defaultRates?.cacheMissInputPerMillionUsd,
+    outputPerMillionUsd:
+      parseEnvRate('AI_COST_OUTPUT_PER_MILLION_USD') ??
+      defaultRates?.outputPerMillionUsd,
+  };
+
+  if (
+    rates.cacheHitInputPerMillionUsd === undefined ||
+    rates.cacheMissInputPerMillionUsd === undefined ||
+    rates.outputPerMillionUsd === undefined
+  ) {
+    return null;
+  }
+
+  return rates as CostRates;
+}
+
+function parseEnvRate(name: string): number | undefined {
+  const raw = process.env[name];
+
+  if (!raw) {
+    return undefined;
+  }
+
+  const parsed = Number.parseFloat(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+function normalizeTokenCount(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return 0;
+  }
+
+  return Math.floor(value);
 }

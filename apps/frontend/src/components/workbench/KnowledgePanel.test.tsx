@@ -24,6 +24,7 @@ const managePermissions: RolePermissions = {
   canReviewApproval: true,
   canUpdateTicketStatus: true,
   canViewAuditLogs: false,
+  canViewAiCostDashboard: true,
   capabilities: ['知识维护'],
   knowledgeMode: '可维护知识库',
   summary: '拥有完整控制面',

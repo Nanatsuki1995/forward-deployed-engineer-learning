@@ -46,6 +46,7 @@ export interface RolePermissions {
   canReviewApproval: boolean;
   canUpdateTicketStatus: boolean;
   canViewAuditLogs: boolean;
+  canViewAiCostDashboard: boolean;
   capabilities: string[];
   knowledgeMode: string;
   summary: string;
@@ -61,7 +62,14 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
         canReviewApproval: true,
         canUpdateTicketStatus: true,
         canViewAuditLogs: true,
-        capabilities: ['全部工单', '知识维护', 'AI 操作', '状态流转', '审计日志'],
+        canViewAiCostDashboard: true,
+        capabilities: [
+          '全部工单',
+          '知识维护',
+          'AI 操作',
+          '成本监控',
+          '审计日志',
+        ],
         knowledgeMode: '可维护知识库',
         summary: '拥有完整控制面',
       };
@@ -73,7 +81,8 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
         canReviewApproval: false,
         canUpdateTicketStatus: true,
         canViewAuditLogs: false,
-        capabilities: ['工单处理', '知识维护', 'AI 操作'],
+        canViewAiCostDashboard: true,
+        capabilities: ['工单处理', '知识维护', 'AI 操作', '成本监控'],
         knowledgeMode: '可维护知识库',
         summary: '可处理和流转工单',
       };
@@ -85,6 +94,7 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
         canReviewApproval: true,
         canUpdateTicketStatus: true,
         canViewAuditLogs: false,
+        canViewAiCostDashboard: false,
         capabilities: ['审核确认', 'AI 操作', '知识只读'],
         knowledgeMode: '只读知识库',
         summary: '聚焦审核与确认',
@@ -97,6 +107,7 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
         canReviewApproval: false,
         canUpdateTicketStatus: false,
         canViewAuditLogs: false,
+        canViewAiCostDashboard: false,
         capabilities: ['未授权'],
         knowledgeMode: '未授权',
         summary: '需要登录',
@@ -106,4 +117,12 @@ export function getRolePermissions(role?: UserRole): RolePermissions {
 
 export function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+export function formatTokenCount(value: number) {
+  return new Intl.NumberFormat('zh-CN').format(value);
+}
+
+export function formatEstimatedCostUsd(value: number) {
+  return `$${value.toFixed(6)}`;
 }

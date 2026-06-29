@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import './App.less';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { WorkbenchLayout } from './components/layout/WorkbenchLayout';
+import { AiCostDashboardPage } from './pages/AiCostDashboardPage';
 import { AuditLogPage } from './pages/AuditLogPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { KnowledgePage } from './pages/KnowledgePage';
@@ -119,6 +120,7 @@ function App() {
                   <Routes>
                     <Route element={<DashboardPage />} path="/" />
                     <Route element={<TicketsPage />} path="/tickets" />
+                    <Route element={<AiCostDashboardPage />} path="/ai-costs" />
                     <Route element={<KnowledgePage />} path="/knowledge" />
                     <Route element={<RoadmapPage />} path="/roadmap" />
                     <Route element={<AuditLogPage />} path="/audit" />

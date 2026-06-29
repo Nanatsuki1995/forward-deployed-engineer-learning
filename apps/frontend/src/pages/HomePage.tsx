@@ -74,7 +74,7 @@ export function HomePage() {
           api.health(),
           api.tickets(),
           api.knowledge(),
-          api.aiLogs(),
+          permissions.canViewAiCostDashboard ? api.aiLogs() : Promise.resolve([]),
         ]);
 
       setHealth(healthResult);
@@ -91,7 +91,7 @@ export function HomePage() {
     } finally {
       setIsLoading(false);
     }
-  }, [logout]);
+  }, [logout, permissions.canViewAiCostDashboard]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

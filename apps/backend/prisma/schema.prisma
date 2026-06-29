@@ -159,16 +159,24 @@ model KnowledgeChunk {
 }
 
 model AiLog {
-  id            String    @id @default(cuid())
-  ticketId      String
-  type          AiLogType
-  promptVersion String
-  model         String
-  result        String
-  confidence    Float
-  citations     String[]  @default([])
-  actorId       String?
-  createdAt     DateTime  @default(now())
+  id                    String    @id @default(cuid())
+  ticketId              String
+  type                  AiLogType
+  promptVersion         String
+  model                 String
+  result                String
+  confidence            Float
+  citations             String[]  @default([])
+  promptTokens          Int       @default(0)
+  completionTokens      Int       @default(0)
+  totalTokens           Int       @default(0)
+  cachedPromptTokens    Int       @default(0)
+  cacheMissPromptTokens Int       @default(0)
+  reasoningTokens       Int       @default(0)
+  apiCallCount          Int       @default(0)
+  estimatedCostUsd      Float?
+  actorId               String?
+  createdAt             DateTime  @default(now())
 
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   actor  User?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
@@ -177,6 +185,7 @@ model AiLog {
   @@index([type])
   @@index([createdAt])
   @@index([actorId])
+  @@index([model, createdAt])
 }
 
 model AuditLog {

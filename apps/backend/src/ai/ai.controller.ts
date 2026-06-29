@@ -57,8 +57,9 @@ export class AiController {
   }
 
   @Get('logs')
+  @Roles('admin', 'agent')
   @Auditable('ai')
-  @ApiOperation({ summary: '查询 AI 调用日志' })
+  @ApiOperation({ summary: '查询 AI 调用日志与成本统计（管理员/现场工程师）' })
   findLogs() {
     return this.aiService.findLogs();
   }

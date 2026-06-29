@@ -72,8 +72,11 @@ export function mapKnowledgeDocument(
   };
 }
 
-export function mapAiLog(log: AiLog): AiLogDto {
-  return {
+export function mapAiLog(
+  log: AiLog,
+  options: { includeUsage?: boolean } = {},
+): AiLogDto {
+  const dto: AiLogDto = {
     id: log.id,
     ticketId: log.ticketId,
     type: mapAiLogType(log.type),
@@ -84,6 +87,21 @@ export function mapAiLog(log: AiLog): AiLogDto {
     citations: log.citations,
     createdAt: log.createdAt.toISOString(),
   };
+
+  if (options.includeUsage) {
+    dto.usage = {
+      promptTokens: log.promptTokens,
+      completionTokens: log.completionTokens,
+      totalTokens: log.totalTokens,
+      cachedPromptTokens: log.cachedPromptTokens,
+      cacheMissPromptTokens: log.cacheMissPromptTokens,
+      reasoningTokens: log.reasoningTokens,
+      apiCallCount: log.apiCallCount,
+      estimatedCostUsd: log.estimatedCostUsd,
+    };
+  }
+
+  return dto;
 }
 
 export function toPrismaUserRole(role: string | undefined): UserRole {

@@ -9,9 +9,10 @@ src/
 ├── main.ts                    # 入口：CORS、ValidationPipe、Swagger、全局过滤器
 ├── app.module.ts              # 根模块：Redis, Prisma, Embedding, Audit, Auth, Tickets, Knowledge, AI
 ├── app.controller.ts          # /api/health
-├── ai/                        # AI 回复建议、摘要生成（mock LLM）
-│   ├── ai.service.ts          # 创建 AiLog（含 actorId），mock 生成文本
-│   └── ai.controller.ts       # POST reply-suggestion, POST summary, GET logs
+├── ai/                        # AI 回复建议、摘要生成、token / 成本监控
+│   ├── ai.service.ts          # 创建 AiLog（含 actorId、usage、预估成本；生成响应不暴露 usage）
+│   ├── ai-token-usage.ts      # token 用量默认值、累计、AiLog 写入数据
+│   └── ai.controller.ts       # POST reply-suggestion, POST summary, GET logs（admin/agent）
 ├── audit/                     # 审计日志
 │   ├── audit.types.ts         # AuditEvent 接口
 │   ├── audit.decorator.ts     # @Auditable(resource, action?)
@@ -108,11 +109,17 @@ HTTP 请求 → AuditInterceptor.tap() → AuditService.log(event)
 | `JWT_SECRET` | — | JWT 签名密钥 |
 | `EMBEDDING_PROVIDER` | `local` | `local` / `openai` |
 | `AUDIT_LOG_ENABLED` | `true` | 启用审计日志 |
+| `AI_PROVIDER` | `mock` | `mock` / `deepseek` |
+| `DEEPSEEK_API_BASE` | `https://api.deepseek.com` | DeepSeek API 地址 |
+| `DEEPSEEK_MODEL` | `deepseek-v4-pro` | DeepSeek 模型名 |
+| `AI_COST_CACHE_HIT_INPUT_PER_MILLION_USD` | 内置默认值 | 可选：缓存命中输入 token 美元 / 百万 token 单价 |
+| `AI_COST_CACHE_MISS_INPUT_PER_MILLION_USD` | 内置默认值 | 可选：缓存未命中输入 token 美元 / 百万 token 单价 |
+| `AI_COST_OUTPUT_PER_MILLION_USD` | 内置默认值 | 可选：输出 token 美元 / 百万 token 单价 |
 
 ## 测试
 
 ```bash
-pnpm test          # 单元测试（Jest, 5 套件 20 测试）
+pnpm test          # 单元测试（Jest, 7 套件 23 测试）
 pnpm test:e2e      # E2E 测试（Supertest, 1 套件 2 测试）
 ```
 

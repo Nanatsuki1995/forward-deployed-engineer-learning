@@ -72,7 +72,10 @@ export function TicketsPage() {
     setLoading(true);
     setError(null);
     try {
-      const [t, l] = await Promise.all([api.tickets(), api.aiLogs()]);
+      const [t, l] = await Promise.all([
+        api.tickets(),
+        permissions.canViewAiCostDashboard ? api.aiLogs() : Promise.resolve([]),
+      ]);
       setTickets(t);
       setAiLogs(l);
       if (!selectedId) setSelectedId(t[0]?.id ?? '');
@@ -82,7 +85,7 @@ export function TicketsPage() {
     } finally {
       setLoading(false);
     }
-  }, [logout, selectedId]);
+  }, [logout, permissions.canViewAiCostDashboard, selectedId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

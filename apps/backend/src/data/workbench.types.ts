@@ -54,6 +54,17 @@ export interface KnowledgeDocument {
 
 export type AiLogType = 'reply_suggestion' | 'summary';
 
+export interface AiTokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cachedPromptTokens: number;
+  cacheMissPromptTokens: number;
+  reasoningTokens: number;
+  apiCallCount: number;
+  estimatedCostUsd: number | null;
+}
+
 export interface AiLog {
   id: string;
   ticketId: string;
@@ -63,5 +74,6 @@ export interface AiLog {
   result: string;
   confidence: number;
   citations: string[];
+  usage?: AiTokenUsage;
   createdAt: string;
 }
