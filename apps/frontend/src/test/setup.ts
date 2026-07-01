@@ -14,3 +14,10 @@ Object.defineProperty(window, 'matchMedia', {
     removeListener: vi.fn(),
   }),
 });
+
+// jsdom does not implement ResizeObserver, which is required by Ant Design components
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
