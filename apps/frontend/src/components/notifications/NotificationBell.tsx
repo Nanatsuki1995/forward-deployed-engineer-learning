@@ -1,9 +1,11 @@
 import { BellOutlined } from '@ant-design/icons';
 import { Badge, Button, Dropdown, Empty, Flex, List, Typography } from 'antd';
+import { useNavigate } from 'react-router-dom';
 import { useNotification } from '../../notifications/NotificationContext';
 
 export function NotificationBell() {
   const { notifications, unreadCount, markRead, markAllRead } = useNotification();
+  const navigate = useNavigate();
 
   const dropdownContent = (
     <Flex vertical style={{ width: 340, maxHeight: 400 }}>
@@ -31,6 +33,7 @@ export function NotificationBell() {
               <List.Item
                 onClick={() => {
                   if (!item.isRead) markRead(item.id);
+                  navigate(`/tickets?ticketId=${item.ticketId}`);
                 }}
                 style={{
                   cursor: 'pointer',

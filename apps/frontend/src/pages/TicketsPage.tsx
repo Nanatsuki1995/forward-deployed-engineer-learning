@@ -25,6 +25,7 @@ import {
   Typography,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import type { AiLog, Ticket, TicketStatus } from '../api/client';
 import { api } from '../api/client';
 import { useAuth } from '../auth/useAuth';
@@ -40,10 +41,13 @@ import {
 export function TicketsPage() {
   const { logout, user } = useAuth();
   const permissions = getRolePermissions(user?.role);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const ticketIdFromUrl = searchParams.get('ticketId') ?? '';
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [aiLogs, setAiLogs] = useState<AiLog[]>([]);
-  const [selectedId, setSelectedId] = useState<string>('');
+  const [selectedId, setSelectedId] = useState<string>(ticketIdFromUrl);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -180,7 +184,10 @@ export function TicketsPage() {
                 filtered.map((ticket) => (
                   <div
                     key={ticket.id}
-                    onClick={() => setSelectedId(ticket.id)}
+                    onClick={() => {
+                      setSelectedId(ticket.id);
+                      setSearchParams({ ticketId: ticket.id }, { replace: true });
+                    }}
                     style={{
                       cursor: 'pointer',
                       padding: '10px 16px',

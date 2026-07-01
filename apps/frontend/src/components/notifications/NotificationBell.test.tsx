@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
 
 // Mock the notification context
@@ -47,7 +48,7 @@ describe('NotificationBell', () => {
   });
 
   it('should display unread badge count', () => {
-    render(<NotificationBell />);
+    render(<MemoryRouter><NotificationBell /></MemoryRouter>);
     // Ant Design Badge shows the count in a sup element
     const badge = document.querySelector('.ant-badge-count') as HTMLElement;
     expect(badge).toBeDefined();
@@ -55,7 +56,7 @@ describe('NotificationBell', () => {
   });
 
   it('should show notification dropdown on click', async () => {
-    render(<NotificationBell />);
+    render(<MemoryRouter><NotificationBell /></MemoryRouter>);
     const bellButton = document.querySelector('.ant-btn') as HTMLElement;
     fireEvent.click(bellButton);
 
@@ -66,7 +67,7 @@ describe('NotificationBell', () => {
   });
 
   it('should show "mark all read" button when there are unread', async () => {
-    render(<NotificationBell />);
+    render(<MemoryRouter><NotificationBell /></MemoryRouter>);
     const bellButton = document.querySelector('.ant-btn') as HTMLElement;
     fireEvent.click(bellButton);
 
@@ -76,7 +77,7 @@ describe('NotificationBell', () => {
   });
 
   it('should call markRead when clicking unread item', async () => {
-    render(<NotificationBell />);
+    render(<MemoryRouter><NotificationBell /></MemoryRouter>);
     const bellButton = document.querySelector('.ant-btn') as HTMLElement;
     fireEvent.click(bellButton);
 
