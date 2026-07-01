@@ -30,6 +30,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import { getRolePermissions, roleLabels } from '../../lib/workbench';
 import type { RolePermissions } from '../../lib/workbench';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 const { Content, Sider, Header } = Layout;
 
@@ -233,14 +234,17 @@ export function WorkbenchLayout({ children }: { children: ReactNode }) {
             <Breadcrumb items={pathToBreadcrumb(location.pathname)} />
           </Flex>
 
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-            <Space style={{ cursor: 'pointer' }}>
-              <Avatar icon={<UserOutlined />} size="small" style={{ background: themeToken.colorPrimary }} />
-              {!collapsed && (
-                <Typography.Text>{user?.name ?? '未登录'}</Typography.Text>
-              )}
-            </Space>
-          </Dropdown>
+          <Flex align="center" gap={8}>
+            <NotificationBell />
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+              <Space style={{ cursor: 'pointer' }}>
+                <Avatar icon={<UserOutlined />} size="small" style={{ background: themeToken.colorPrimary }} />
+                {!collapsed && (
+                  <Typography.Text>{user?.name ?? '未登录'}</Typography.Text>
+                )}
+              </Space>
+            </Dropdown>
+          </Flex>
         </Header>
 
         <Content

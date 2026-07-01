@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { User } from '../../api/client';
 import { AuthContext } from '../../auth/auth-context';
 import type { AuthContextValue } from '../../auth/auth-context';
+import { NotificationProvider } from '../../notifications/NotificationContext';
 import { WorkbenchLayout } from './WorkbenchLayout';
 
 const user: User = {
@@ -26,9 +27,11 @@ describe('WorkbenchLayout', () => {
     render(
       <MemoryRouter initialEntries={['/ai-costs']}>
         <AuthContext.Provider value={authValue}>
-          <WorkbenchLayout>
-            <div style={{ height: 2000 }}>Long page content</div>
-          </WorkbenchLayout>
+          <NotificationProvider>
+            <WorkbenchLayout>
+              <div style={{ height: 2000 }}>Long page content</div>
+            </WorkbenchLayout>
+          </NotificationProvider>
         </AuthContext.Provider>
       </MemoryRouter>,
     );
