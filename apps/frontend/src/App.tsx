@@ -2,6 +2,7 @@ import { App as AntdApp, ConfigProvider } from 'antd';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import './App.less';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { NotificationProvider } from './notifications/NotificationContext';
 import { WorkbenchLayout } from './components/layout/WorkbenchLayout';
 import { AiCostDashboardPage } from './pages/AiCostDashboardPage';
 import { AuditLogPage } from './pages/AuditLogPage';
@@ -116,16 +117,18 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route
               element={
-                <WorkbenchLayout>
-                  <Routes>
-                    <Route element={<DashboardPage />} path="/" />
-                    <Route element={<TicketsPage />} path="/tickets" />
-                    <Route element={<AiCostDashboardPage />} path="/ai-costs" />
-                    <Route element={<KnowledgePage />} path="/knowledge" />
-                    <Route element={<RoadmapPage />} path="/roadmap" />
-                    <Route element={<AuditLogPage />} path="/audit" />
-                  </Routes>
-                </WorkbenchLayout>
+                <NotificationProvider>
+                  <WorkbenchLayout>
+                    <Routes>
+                      <Route element={<DashboardPage />} path="/" />
+                      <Route element={<TicketsPage />} path="/tickets" />
+                      <Route element={<AiCostDashboardPage />} path="/ai-costs" />
+                      <Route element={<KnowledgePage />} path="/knowledge" />
+                      <Route element={<RoadmapPage />} path="/roadmap" />
+                      <Route element={<AuditLogPage />} path="/audit" />
+                    </Routes>
+                  </WorkbenchLayout>
+                </NotificationProvider>
               }
               path="*"
             />
