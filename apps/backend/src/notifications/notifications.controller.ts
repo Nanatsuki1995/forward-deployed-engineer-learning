@@ -26,7 +26,9 @@ export class NotificationsController {
 
   @Sse('stream')
   @Roles('admin', 'agent')
-  @ApiOperation({ summary: 'SSE 实时通知流 (token 通过 ?authorization=Bearer%20xxx 传递)' })
+  @ApiOperation({
+    summary: 'SSE 实时通知流 (token 通过 ?authorization=Bearer%20xxx 传递)',
+  })
   stream(@CurrentUser() user: AuthenticatedUser): Observable<MessageEvent> {
     return this.notificationsService.getUserStream(user.id).asObservable();
   }

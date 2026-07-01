@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
@@ -172,9 +174,7 @@ describe('AppController (e2e)', () => {
 
   describe('Notifications (e2e)', () => {
     it('GET /api/notifications should return 401 without auth', async () => {
-      await request(app.getHttpServer())
-        .get('/api/notifications')
-        .expect(401);
+      await request(app.getHttpServer()).get('/api/notifications').expect(401);
     });
 
     it('GET /api/notifications/unread-count should return 401 without auth', async () => {

@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsEmail,
+  IsIn,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class CreatePublicTicketDto {
   @ApiProperty({ example: '数据看板无法访问' })
@@ -17,7 +24,10 @@ export class CreatePublicTicketDto {
   @IsString()
   category?: string;
 
-  @ApiPropertyOptional({ enum: ['low', 'medium', 'high', 'urgent'], example: 'high' })
+  @ApiPropertyOptional({
+    enum: ['low', 'medium', 'high', 'urgent'],
+    example: 'high',
+  })
   @IsOptional()
   @IsIn(['low', 'medium', 'high', 'urgent'])
   priority?: string;

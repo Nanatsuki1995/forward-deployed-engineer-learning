@@ -1,5 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { NotFoundException } from '@nestjs/common';
-import { MessageRole, TicketPriority, TicketStatus, type Ticket as PrismaTicket, type TicketMessage as PrismaTicketMessage } from '@prisma/client';
+import {
+  TicketPriority,
+  TicketStatus,
+  type Ticket as PrismaTicket,
+  type TicketMessage as PrismaTicketMessage,
+} from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TicketsService } from './tickets.service';
@@ -41,7 +48,9 @@ describe('TicketsService', () => {
   describe('findAll', () => {
     it('should return mapped tickets', async () => {
       const now = new Date();
-      const mockTickets: (PrismaTicket & { messages: PrismaTicketMessage[] })[] = [
+      const mockTickets: (PrismaTicket & {
+        messages: PrismaTicketMessage[];
+      })[] = [
         {
           id: 't-1',
           title: '标题',
@@ -138,7 +147,12 @@ describe('TicketsService', () => {
   });
 
   describe('create', () => {
-    const user = { id: 'user-agent', name: 'Agent', email: 'agent@example.com', role: 'agent' as const };
+    const user = {
+      id: 'user-agent',
+      name: 'Agent',
+      email: 'agent@example.com',
+      role: 'agent' as const,
+    };
 
     it('should create a ticket with authenticated user as requester', async () => {
       const now = new Date();
@@ -326,7 +340,10 @@ describe('TicketsService', () => {
 
       await service.createPublic({ title: 'T', description: 'D' });
 
-      expect(notificationsMock.push).toHaveBeenCalledWith('ticket-1', '测试工单');
+      expect(notificationsMock.push).toHaveBeenCalledWith(
+        'ticket-1',
+        '测试工单',
+      );
     });
 
     it('should swallow notification push errors', async () => {
@@ -336,7 +353,10 @@ describe('TicketsService', () => {
       notificationsMock.push.mockRejectedValueOnce(new Error('Push failed'));
 
       // Should not throw even though notification fails
-      const result = await service.createPublic({ title: 'T', description: 'D' });
+      const result = await service.createPublic({
+        title: 'T',
+        description: 'D',
+      });
 
       expect(result.id).toBe('ticket-1');
       expect(notificationsMock.push).toHaveBeenCalled();
@@ -417,7 +437,7 @@ describe('TicketsService', () => {
         createdAt: now,
         updatedAt: now,
         messages: [],
-      } as PrismaTicket & { messages: PrismaTicketMessage[] });
+      });
 
       const result = await service.updateStatus('t-1', 'in_progress');
 

@@ -2,7 +2,6 @@ import {
   AiLogType,
   KnowledgeStatus,
   MessageRole,
-  NotificationType,
   TicketPriority,
   TicketStatus,
   UserRole,

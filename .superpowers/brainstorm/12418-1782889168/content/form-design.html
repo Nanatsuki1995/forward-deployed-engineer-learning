@@ -1,0 +1,113 @@
+<h2>工单录入表单设计 — 两种方案</h2>
+<p class="subtitle">游客端公开页面，无需登录。选择一个你觉得合适的布局方向。</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>居中卡片式</h3>
+      <p>类似登录页，居中窄卡片，干净简洁，适合字段少的场景。所有字段在一张卡片内。</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>宽屏双栏式</h3>
+      <p>左侧表单区 + 右侧预览/指引区，空间利用率高，适合字段较多时，可加填写指引。</p>
+    </div>
+  </div>
+</div>
+
+<hr style="margin: 24px 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<div class="section">
+  <h3>方案 A — 居中卡片式</h3>
+  <div class="mockup">
+    <div class="mockup-header">/submit — 公开工单录入</div>
+    <div class="mockup-body" style="display:flex; justify-content:center; padding:20px; background:#f1f5f9;">
+      <div style="width:480px; background:#fff; border-radius:12px; box-shadow:0 4px 24px rgba(0,0,0,0.08); padding:32px;">
+        <div style="text-align:center; margin-bottom:24px;">
+          <div style="font-size:20px; font-weight:700; color:#1e293b;">📝 提交工单</div>
+          <div style="font-size:13px; color:#94a3b8; margin-top:4px;">请描述您的问题，我们会尽快处理</div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px; color:#475569; margin-bottom:4px;">标题 <span style="color:#ef4444;">*</span></div>
+          <div class="mock-input" style="width:100%;">请输入工单标题</div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px; color:#475569; margin-bottom:4px;">详细描述 <span style="color:#ef4444;">*</span></div>
+          <div class="placeholder" style="height:100px;">请详细描述您遇到的问题...</div>
+        </div>
+        <div style="display:flex; gap:12px; margin-bottom:16px;">
+          <div style="flex:1;">
+            <div style="font-size:13px; color:#475569; margin-bottom:4px;">分类</div>
+            <div class="mock-input" style="width:100%;">选择分类</div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:13px; color:#475569; margin-bottom:4px;">优先级</div>
+            <div class="mock-input" style="width:100%;">选择优先级</div>
+          </div>
+        </div>
+        <div style="font-size:13px; color:#94a3b8; margin-bottom:16px;">联系信息（选填）</div>
+        <div style="display:flex; gap:12px; margin-bottom:8px;">
+          <div style="flex:1;"><div class="mock-input" style="width:100%;">姓名</div></div>
+          <div style="flex:1;"><div class="mock-input" style="width:100%;">手机号</div></div>
+        </div>
+        <div style="margin-bottom:20px;"><div class="mock-input" style="width:100%;">邮箱</div></div>
+        <button class="mock-button" style="width:100%; background:#3b82f0; color:#fff; border:none; padding:10px; border-radius:8px; font-size:15px; font-weight:600;">提交工单</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>方案 B — 宽屏双栏式</h3>
+  <div class="mockup">
+    <div class="mockup-header">/submit — 公开工单录入（双栏布局）</div>
+    <div class="mockup-body" style="display:flex; gap:0; padding:0; background:#fff; border-radius:8px; overflow:hidden;">
+      <!-- Left: Form -->
+      <div style="flex:3; padding:32px;">
+        <div style="font-size:20px; font-weight:700; color:#1e293b; margin-bottom:20px;">📝 提交工单</div>
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px; color:#475569; margin-bottom:4px;">标题 <span style="color:#ef4444;">*</span></div>
+          <div class="mock-input" style="width:100%;">请输入工单标题</div>
+        </div>
+        <div style="margin-bottom:16px;">
+          <div style="font-size:13px; color:#475569; margin-bottom:4px;">详细描述 <span style="color:#ef4444;">*</span></div>
+          <div class="placeholder" style="height:120px;">请详细描述您遇到的问题...</div>
+        </div>
+        <div style="display:flex; gap:12px; margin-bottom:16px;">
+          <div style="flex:1;">
+            <div style="font-size:13px; color:#475569; margin-bottom:4px;">分类</div>
+            <div class="mock-input" style="width:100%;">选择分类</div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:13px; color:#475569; margin-bottom:4px;">优先级</div>
+            <div class="mock-input" style="width:100%;">选择优先级</div>
+          </div>
+        </div>
+        <div style="font-size:13px; color:#94a3b8; margin-bottom:12px;">联系信息（选填）</div>
+        <div style="display:flex; gap:12px; margin-bottom:12px;">
+          <div style="flex:1;"><div class="mock-input" style="width:100%;">姓名</div></div>
+          <div style="flex:1;"><div class="mock-input" style="width:100%;">手机号</div></div>
+        </div>
+        <div style="margin-bottom:20px;"><div class="mock-input" style="width:100%;">邮箱</div></div>
+        <button class="mock-button" style="width:100%; background:#3b82f0; color:#fff; border:none; padding:12px; border-radius:8px; font-size:16px; font-weight:600;">提交工单</button>
+      </div>
+      <!-- Right: Guide -->
+      <div style="flex:2; background:#f8fafc; padding:32px; border-left:1px solid #e2e8f0;">
+        <div style="font-size:15px; font-weight:600; color:#1e293b; margin-bottom:16px;">📋 填写指引</div>
+        <div style="font-size:13px; color:#64748b; line-height:1.8;">
+          <div style="margin-bottom:12px;"><strong>标题</strong><br>简洁描述问题，如"数据看板无法访问"</div>
+          <div style="margin-bottom:12px;"><strong>描述</strong><br>说明发生时间、影响范围、已尝试的操作</div>
+          <div style="margin-bottom:12px;"><strong>分类</strong><br>选择问题类型，便于快速分派</div>
+          <div style="margin-bottom:12px;"><strong>优先级</strong><br>紧急问题请选"高"或"紧急"</div>
+          <div style="margin-bottom:12px;"><strong>联系信息</strong><br>方便我们跟进反馈处理结果</div>
+        </div>
+        <div style="margin-top:20px; padding:12px; background:#eff6ff; border-radius:8px; font-size:12px; color:#3b82f0;">
+          ⏱️ 提交后我们会在 1 个工作日内处理
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

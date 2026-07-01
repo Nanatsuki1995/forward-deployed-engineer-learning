@@ -1,0 +1,80 @@
+<h2>工单录入系统 — 架构设计</h2>
+<p class="subtitle">游客提交 → 后台展示 → SSE 实时通知</p>
+
+<div class="section">
+  <h3>整体架构</h3>
+  <div class="mockup">
+    <div class="mockup-header">系统组件与数据流</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.8; padding: 16px;">
+      <div style="display:flex; gap:16px; flex-wrap:wrap;">
+        <!-- Public portal -->
+        <div style="flex:1; min-width:200px; background:#eff6ff; border:2px solid #3b82f0; border-radius:8px; padding:12px;">
+          <strong style="color:#3b82f0;">📝 公开录入页</strong><br>
+          <span style="color:#64748b;font-size:12px;">/submit (无需登录)</span><br><br>
+          • 标题、描述<br>
+          • 分类、优先级<br>
+          • 姓名、手机、邮箱<br>
+          • 标签<br>
+          <span style="color:#94a3b8;">→ POST /api/tickets/public</span>
+        </div>
+        <!-- Backend -->
+        <div style="flex:1; min-width:200px; background:#f0fdf4; border:2px solid #10b981; border-radius:8px; padding:12px;">
+          <strong style="color:#10b981;">🔧 NestJS 后端</strong><br><br>
+          • 新公开建单端点<br>
+          • 工单写入 DB<br>
+          • 推送 SSE 事件<br>
+          • Notification 表持久化
+        </div>
+        <!-- SSE -->
+        <div style="flex:1; min-width:200px; background:#fefce8; border:2px solid #eab308; border-radius:8px; padding:12px;">
+          <strong style="color:#ca8a04;">🔔 SSE 通知</strong><br><br>
+          • GET /api/notifications/stream<br>
+          • 实时推送到后台<br>
+          • Badge 未读计数<br>
+          • 点击查看通知列表
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>数据模型变更</h3>
+  <div class="mockup">
+    <div class="mockup-header">新增 Notification 表 + Ticket 扩展</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; padding: 12px;">
+      <strong>Notification</strong><br>
+      <span style="color:#94a3b8;">id | userId | ticketId | type | title | message | read | createdAt</span><br><br>
+      <strong>Ticket 新增字段</strong><br>
+      <span style="color:#94a3b8;">submitterName | submitterPhone | submitterEmail | source: 'internal' | 'public'</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>前端路由</h3>
+  <table style="width:100%; border-collapse:collapse;">
+    <tr style="border-bottom:1px solid #e2e8f0;"><th style="text-align:left; padding:8px;">路由</th><th style="text-align:left; padding:8px;">页面</th><th style="text-align:left; padding:8px;">权限</th></tr>
+    <tr style="border-bottom:1px solid #f1f5f9;"><td>/submit</td><td>公开工单录入表单</td><td><span style="color:#10b981;">公开</span></td></tr>
+    <tr style="border-bottom:1px solid #f1f5f9;"><td>/tickets</td><td>工单列表（已有）</td><td>登录用户</td></tr>
+    <tr><td colspan="3" style="padding:8px; color:#64748b;">侧边栏新增 🔔 通知入口 + 未读 Badge</td></tr>
+  </table>
+</div>
+
+<div class="section">
+  <h3>技术方案</h3>
+  <div style="display:flex; gap:12px; flex-wrap:wrap;">
+    <div style="flex:1; min-width:160px; padding:12px; background:#f8fafc; border-radius:8px;">
+      <strong>后端 SSE</strong>
+      <p style="font-size:13px; color:#64748b;">NestJS @Sse() 装饰器<br>RxJS Observable<br>JWT 鉴权</p>
+    </div>
+    <div style="flex:1; min-width:160px; padding:12px; background:#f8fafc; border-radius:8px;">
+      <strong>通知持久化</strong>
+      <p style="font-size:13px; color:#64748b;">Notification 表<br>标记已读/未读<br>Prisma Migration</p>
+    </div>
+    <div style="flex:1; min-width:160px; padding:12px; background:#f8fafc; border-radius:8px;">
+      <strong>前端 SSE 消费</strong>
+      <p style="font-size:13px; color:#64748b;">EventSource API<br>React Context<br>Ant Design Badge</p>
+    </div>
+  </div>
+</div>

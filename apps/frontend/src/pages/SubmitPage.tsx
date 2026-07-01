@@ -1,5 +1,5 @@
 import { CheckCircleOutlined, FormOutlined } from '@ant-design/icons';
-import { App, Button, Card, Form, Input, Radio, Result, Select, Space, Typography } from 'antd';
+import { App, Button, Card, Form, Input, Radio, Result, Select, Typography } from 'antd';
 import { useState } from 'react';
 import { api } from '../api/client';
 

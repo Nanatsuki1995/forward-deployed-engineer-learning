@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
+
 import { Subject } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from './notifications.service';
@@ -105,7 +107,7 @@ describe('NotificationsService', () => {
       await service.push('ticket-1', 'Test');
 
       expect(nextSpy).toHaveBeenCalled();
-      const event = nextSpy.mock.calls[0][0] as MessageEvent;
+      const event = nextSpy.mock.calls[0][0];
       const data = JSON.parse(event.data);
       expect(data.type).toBe('new_ticket');
       expect(data.ticketId).toBe('ticket-1');

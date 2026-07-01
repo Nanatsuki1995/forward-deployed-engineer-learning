@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { SubmitPage } from './SubmitPage';
-import { api } from '../api/client';
+import { api, type Ticket } from '../api/client';
 
 // Mock the API
 vi.mock('../api/client', () => ({
@@ -61,7 +61,7 @@ describe('SubmitPage', () => {
       title: 'Test',
       description: 'Test desc',
       source: 'public',
-    } as any);
+    } as Ticket);
 
     renderSubmitPage();
 
@@ -103,7 +103,7 @@ describe('SubmitPage', () => {
       id: 'ticket-456',
       title: 'Test',
       source: 'public',
-    } as any);
+    } as Ticket);
 
     renderSubmitPage();
 

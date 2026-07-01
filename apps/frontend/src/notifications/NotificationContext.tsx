@@ -73,6 +73,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
 
     // Load history on mount
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadNotifications();
 
     return () => {
@@ -111,6 +112,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useNotification() {
   const ctx = useContext(NotificationContext);
   if (!ctx) {
