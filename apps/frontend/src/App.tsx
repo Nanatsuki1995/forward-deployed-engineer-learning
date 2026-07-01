@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { KnowledgePage } from './pages/KnowledgePage';
 import { LoginPage } from './pages/LoginPage';
 import { RoadmapPage } from './pages/RoadmapPage';
+import { SubmitPage } from './pages/SubmitPage';
 import { TicketsPage } from './pages/TicketsPage';
 
 function App() {
@@ -114,6 +115,7 @@ function App() {
       <AntdApp>
         <Routes>
           <Route element={<LoginPage />} path="/login" />
+          <Route element={<SubmitPage />} path="/submit" />
           <Route element={<ProtectedRoute />}>
             <Route
               element={
