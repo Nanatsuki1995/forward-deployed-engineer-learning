@@ -114,6 +114,17 @@ export interface KnowledgeSearchResult {
   score: number;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  ticketId: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 export interface HealthResponse {
   status: 'ok';
   service: string;
@@ -215,6 +226,33 @@ export const api = {
     request<AiLog>(`/ai/tickets/${ticketId}/summary`, {
       method: 'POST',
     }),
+  createPublicTicket: (body: {
+    title: string;
+    description: string;
+    category?: string;
+    priority?: string;
+    submitterName?: string;
+    submitterPhone?: string;
+    submitterEmail?: string;
+    tags?: string[];
+  }) =>
+    request<Ticket>('/tickets/public', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      skipAuth: true,
+    }),
+
+  notifications: () => request<Notification[]>('/notifications'),
+
+  markNotificationRead: (id: string) =>
+    request<void>(`/notifications/${id}/read`, { method: 'PATCH' }),
+
+  markAllNotificationsRead: () =>
+    request<void>('/notifications/read-all', { method: 'PATCH' }),
+
+  unreadNotificationCount: () =>
+    request<number>('/notifications/unread-count'),
+
   hasStoredSession: () => Boolean(accessToken || refreshToken),
   clearSession: () => clearAuthTokens(),
 };
