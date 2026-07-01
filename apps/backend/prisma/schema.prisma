@@ -69,6 +69,7 @@ model User {
   refreshTokens    RefreshToken[]
   auditLogs        AuditLog[]
   aiLogs           AiLog[]
+  notifications    Notification[]
 }
 
 model RefreshToken {
@@ -99,6 +100,10 @@ model Ticket {
   assignee        String         @default("待分派")
   assigneeUserId  String?
   tags            String[]       @default([])
+  submitterName   String?
+  submitterPhone  String?
+  submitterEmail  String?
+  source          String         @default("internal")
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -106,6 +111,7 @@ model Ticket {
   assigneeUser  User?           @relation("TicketAssignee", fields: [assigneeUserId], references: [id])
   messages      TicketMessage[]
   aiLogs        AiLog[]
+  notifications  Notification[]
 
   @@index([status])
   @@index([priority])
@@ -207,4 +213,21 @@ model AuditLog {
   @@index([action])
   @@index([resource])
   @@index([createdAt])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  ticketId  String
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }
