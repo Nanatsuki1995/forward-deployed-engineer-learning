@@ -44,6 +44,10 @@ enum AiLogType {
   SUMMARY
 }
 
+enum NotificationType {
+  NEW_TICKET
+}
+
 enum AuditAction {
   VIEW
   CREATE
@@ -219,7 +223,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   ticketId  String
-  type      String
+  type      NotificationType
   title     String
   message   String
   isRead    Boolean  @default(false)
