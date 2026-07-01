@@ -22,8 +22,10 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { FieldPermissions } from '../auth/field-permissions.decorator';
 import { FieldPermissionsInterceptor } from '../auth/field-permissions.interceptor';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Public } from '../auth/public.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { CreatePublicTicketDto } from './dto/create-public-ticket.dto';
 import { CreateTicketDto } from './dto/create-ticket.dto';
 import { TicketReplayDto } from './dto/ticket-replay.dto';
 import { UpdateTicketStatusDto } from './dto/update-ticket-status.dto';
@@ -70,6 +72,15 @@ export class TicketsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.ticketsService.create(body, user);
+  }
+
+  @Post('public')
+  @Public()
+  @Auditable('ticket')
+  @ApiOperation({ summary: '公开创建工单（无需登录）' })
+  @ApiBody({ type: CreatePublicTicketDto })
+  createPublic(@Body() body: CreatePublicTicketDto) {
+    return this.ticketsService.createPublic(body);
   }
 
   @Patch(':id/status')

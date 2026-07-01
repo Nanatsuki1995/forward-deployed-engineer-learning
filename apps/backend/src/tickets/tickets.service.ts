@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { TicketStatus } from '../data/workbench.types';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import type { CreateTicketDto } from './dto/create-ticket.dto';
+import type { CreatePublicTicketDto } from './dto/create-public-ticket.dto';
 
 @Injectable()
 export class TicketsService {
@@ -67,6 +68,36 @@ export class TicketsService {
         messages: {
           orderBy: { createdAt: 'asc' },
         },
+      },
+    });
+
+    return mapTicket(ticket);
+  }
+
+  async createPublic(input: CreatePublicTicketDto) {
+    const ticket = await this.prisma.ticket.create({
+      data: {
+        title: input.title,
+        description: input.description,
+        category: input.category ?? '未分类',
+        priority: toPrismaTicketPriority(input.priority),
+        requester: input.submitterName ?? '匿名用户',
+        assignee: '待分派',
+        source: 'public',
+        submitterName: input.submitterName ?? null,
+        submitterPhone: input.submitterPhone ?? null,
+        submitterEmail: input.submitterEmail ?? null,
+        tags: input.tags ?? [],
+        messages: {
+          create: {
+            author: input.submitterName ?? '匿名用户',
+            role: MessageRole.REQUESTER,
+            content: input.description,
+          },
+        },
+      },
+      include: {
+        messages: { orderBy: { createdAt: 'asc' } },
       },
     });
 
