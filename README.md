@@ -62,6 +62,12 @@
 - **pnpm** >= 10
 - **Docker**（运行 PostgreSQL 和 Redis）
 
+> **macOS 用户：** 如果未安装 Docker Desktop，推荐使用 [Colima](https://github.com/abiosoft/colima) 作为 Docker 运行时：
+> ```bash
+> brew install colima docker
+> colima start --cpu 2 --memory 4
+> ```
+
 ### 本地开发
 
 ```bash
@@ -71,6 +77,9 @@ pnpm install
 # 配置环境变量
 cp apps/backend/.env.example apps/backend/.env
 # 编辑 .env，设置 JWT_SECRET 为强随机值
+
+# 确保 Docker 已启动（Docker Desktop 或 colima start）
+docker ps
 
 # 启动基础设施
 pnpm infra:up
