@@ -5,6 +5,7 @@ import {
   toPrismaTicketPriority,
   toPrismaTicketStatus,
 } from '../data/workbench.mapper';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { TicketStatus } from '../data/workbench.types';
 import type { AuthenticatedUser } from '../auth/auth.types';
@@ -13,7 +14,10 @@ import type { CreatePublicTicketDto } from './dto/create-public-ticket.dto';
 
 @Injectable()
 export class TicketsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async findAll() {
     const tickets = await this.prisma.ticket.findMany({
@@ -99,6 +103,11 @@ export class TicketsService {
       include: {
         messages: { orderBy: { createdAt: 'asc' } },
       },
+    });
+
+    // Fire-and-forget notification push (don't block response)
+    this.notificationsService.push(ticket.id, ticket.title).catch((err) => {
+      console.error('Failed to push notification:', err);
     });
 
     return mapTicket(ticket);
