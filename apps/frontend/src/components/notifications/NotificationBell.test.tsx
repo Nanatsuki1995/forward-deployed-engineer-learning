@@ -35,6 +35,7 @@ vi.mock('../../notifications/NotificationContext', () => ({
     unreadCount: 1,
     connected: true,
     markRead: mockMarkRead,
+    markReadByTicketId: vi.fn(),
     markAllRead: mockMarkAllRead,
   }),
   NotificationProvider: ({ children }: { children: React.ReactNode }) => children,

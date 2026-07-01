@@ -8,7 +8,7 @@ export function NotificationBell() {
   const navigate = useNavigate();
 
   const dropdownContent = (
-    <Flex vertical style={{ width: 340, maxHeight: 400 }}>
+    <Flex vertical style={{ width: 340, maxHeight: 400, backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' }}>
       <Flex
         justify="space-between"
         align="center"
@@ -86,7 +86,12 @@ export function NotificationBell() {
   );
 
   return (
-    <Dropdown dropdownRender={() => dropdownContent} trigger={['click']} placement="bottomRight">
+    <Dropdown
+      dropdownRender={() => dropdownContent}
+      trigger={['click']}
+      placement="bottomRight"
+      overlayStyle={{ backgroundColor: '#fff', borderRadius: 12, boxShadow: '0 6px 24px rgba(0,0,0,0.12)' }}
+    >
       <Badge count={unreadCount} size="small" offset={[-2, 2]}>
         <Button
           icon={<BellOutlined />}

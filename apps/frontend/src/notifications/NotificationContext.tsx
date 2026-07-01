@@ -16,6 +16,7 @@ interface NotificationContextValue {
   unreadCount: number;
   connected: boolean;
   markRead: (id: string) => Promise<void>;
+  markReadByTicketId: (ticketId: string) => void;
   markAllRead: () => Promise<void>;
 }
 
@@ -93,6 +94,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const markReadByTicketId = (ticketId: string) => {
+    // Find unread notifications for this ticket and mark them read
+    const unreadForTicket = notifications.filter(
+      (n) => n.ticketId === ticketId && !n.isRead,
+    );
+    if (unreadForTicket.length === 0) return;
+
+    // Optimistic update + fire API calls
+    setNotifications((prev) =>
+      prev.map((n) =>
+        n.ticketId === ticketId && !n.isRead ? { ...n, isRead: true } : n,
+      ),
+    );
+    Promise.all(unreadForTicket.map((n) => api.markNotificationRead(n.id))).catch(() => {
+      // Silently fail
+    });
+  };
+
   const markAllRead = async () => {
     try {
       await api.markAllNotificationsRead();
@@ -104,7 +123,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, connected, markRead, markAllRead }}
+      value={{ notifications, unreadCount, connected, markRead, markReadByTicketId, markAllRead }}
     >
       {contextHolder}
       {children}

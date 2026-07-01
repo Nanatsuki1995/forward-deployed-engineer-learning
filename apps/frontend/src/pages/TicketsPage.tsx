@@ -30,6 +30,7 @@ import type { AiLog, Ticket, TicketStatus } from '../api/client';
 import { api } from '../api/client';
 import { useAuth } from '../auth/useAuth';
 import { MarkdownViewer } from '../components/MarkdownViewer';
+import { useNotification } from '../notifications/NotificationContext';
 import {
   getErrorMessage,
   getRolePermissions,
@@ -41,6 +42,7 @@ import {
 export function TicketsPage() {
   const { logout, user } = useAuth();
   const permissions = getRolePermissions(user?.role);
+  const { markReadByTicketId } = useNotification();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const ticketIdFromUrl = searchParams.get('ticketId') ?? '';
@@ -53,6 +55,14 @@ export function TicketsPage() {
   const [generating, setGenerating] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync URL param to selectedId when navigating from notifications
+  useEffect(() => {
+    if (ticketIdFromUrl && ticketIdFromUrl !== selectedId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedId(ticketIdFromUrl);
+    }
+  }, [ticketIdFromUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selected = useMemo(
     () => tickets.find((t) => t.id === selectedId) ?? tickets[0],
@@ -90,6 +100,13 @@ export function TicketsPage() {
       setLoading(false);
     }
   }, [logout, permissions.canViewAiCostDashboard, selectedId]);
+
+  // Auto-mark notifications as read when viewing a ticket
+  useEffect(() => {
+    if (selected?.id) {
+      markReadByTicketId(selected.id);
+    }
+  }, [selected?.id, markReadByTicketId]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
