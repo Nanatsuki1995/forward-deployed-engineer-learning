@@ -2,17 +2,20 @@ import {
   AiLogType,
   KnowledgeStatus,
   MessageRole,
+  NotificationType,
   TicketPriority,
   TicketStatus,
   UserRole,
   type AiLog,
   type KnowledgeDocument,
+  type Notification,
   type Ticket,
   type TicketMessage,
   type User,
 } from '@prisma/client';
 import type {
   AiLog as AiLogDto,
+  Notification as NotificationDto,
   KnowledgeDocument as KnowledgeDocumentDto,
   Ticket as TicketDto,
   TicketMessage as TicketMessageDto,
@@ -41,6 +44,10 @@ export function mapTicket(
     requester: ticket.requester,
     assignee: ticket.assignee,
     tags: ticket.tags,
+    submitterName: ticket.submitterName ?? undefined,
+    submitterPhone: ticket.submitterPhone ?? undefined,
+    submitterEmail: ticket.submitterEmail ?? undefined,
+    source: ticket.source === 'public' ? 'public' : 'internal',
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
     messages: (ticket.messages ?? []).map(mapTicketMessage),
@@ -215,4 +222,19 @@ function mapAiLogType(type: AiLogType) {
     case AiLogType.SUMMARY:
       return 'summary';
   }
+}
+
+export function mapNotification(
+  notification: Notification & { ticket?: { id: string } },
+): NotificationDto {
+  return {
+    id: notification.id,
+    userId: notification.userId,
+    ticketId: notification.ticketId,
+    type: 'new_ticket',
+    title: notification.title,
+    message: notification.message,
+    isRead: notification.isRead,
+    createdAt: notification.createdAt.toISOString(),
+  };
 }

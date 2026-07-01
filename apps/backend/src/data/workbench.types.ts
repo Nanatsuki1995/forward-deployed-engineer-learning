@@ -34,6 +34,10 @@ export interface Ticket {
   requester: string;
   assignee: string;
   tags: string[];
+  submitterName?: string;
+  submitterPhone?: string;
+  submitterEmail?: string;
+  source: 'internal' | 'public';
   createdAt: string;
   updatedAt: string;
   messages: TicketMessage[];
@@ -63,6 +67,19 @@ export interface AiTokenUsage {
   reasoningTokens: number;
   apiCallCount: number;
   estimatedCostUsd: number | null;
+}
+
+export type NotificationTypeDto = 'new_ticket';
+
+export interface Notification {
+  id: string;
+  userId: string;
+  ticketId: string;
+  type: NotificationTypeDto;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
 }
 
 export interface AiLog {
