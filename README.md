@@ -30,7 +30,7 @@
 │   │   │   ├── api/client.ts        # API 客户端（JWT 自动刷新）
 │   │   │   ├── auth/                # 认证上下文、Hook
 │   │   │   ├── components/          # UI 组件
-│   │   │   ├── pages/               # 登录、工作台首页
+│   │   │   ├── pages/               # 登录、仪表盘、工单、知识库、审计等页面
 │   │   │   └── lib/                 # 权限、工具函数
 │   │   ├── Dockerfile               # 多阶段构建 (Vite → Nginx)
 │   │   └── nginx.conf               # 生产 Nginx 配置
@@ -159,7 +159,7 @@ pnpm docker:build            # 同时构建两个
 
 ```text
 POST   /api/auth/login         邮箱密码登录
-POST   /api/auth/register      注册交付工程师账号
+POST   /api/auth/register      注册交付工程师账号（当前默认 AGENT，公网部署前需收紧）
 POST   /api/auth/refresh       轮换 refresh token
 POST   /api/auth/logout        注销会话
 GET    /api/auth/me            获取当前用户信息
@@ -199,7 +199,7 @@ GET    /api/health             健康检查（无需登录）
 GET    /api/audit-logs         审计日志（管理员）
 ```
 
-所有业务接口需要 `Authorization: Bearer <accessToken>`。
+除 `/api/health`、`/api/auth/login`、`/api/auth/register`、`/api/auth/refresh`、`/api/auth/logout` 和 `/api/tickets/public` 外，业务接口需要 `Authorization: Bearer <accessToken>`。角色和字段权限由后端守卫与拦截器执行，前端隐藏按钮只提供 UX 约束。
 
 ## RBAC 与字段级权限
 
@@ -317,7 +317,7 @@ AI_COST_OUTPUT_PER_MILLION_USD=
 
 ## 操作回放
 
-管理员可通过 `POST /api/tickets/:id/replay` 传入 `{ "until": "ISO timestamp" }` 恢复到指定时间点的工单状态。回放基于审计日志的事件链，按时间顺序重放状态变更。
+管理员可通过 `POST /api/tickets/:id/replay` 传入 `{ "until": "ISO timestamp" }` 生成指定时间点的工单快照。当前实现依赖审计日志中的变更元数据，但现有 HTTP 审计主要记录请求元数据，不能视为可靠的事件溯源或历史恢复能力；详见下方架构任务清单。
 
 ## 数据模型
 
@@ -362,6 +362,57 @@ Prisma schema：[`apps/backend/prisma/schema.prisma`](apps/backend/prisma/schema
 | `pnpm docker:build` | 构建 Docker 镜像 |
 | `pnpm docker:up` | 启动生产栈 |
 | `pnpm docker:down` | 停止生产栈 |
+
+## 当前架构状态与任务清单
+
+当前版本是“模块化单体 + 单进程 Worker”的 MVP 架构：NestJS API、BullMQ 知识索引 Worker 和进程内 SSE 通知运行在同一个后端进程；PostgreSQL 保存业务事实，Redis 提供缓存、限流和队列，前端通过 REST 与 SSE 访问后端。它适合学习、演示、单团队内部工具和低并发单实例部署。
+
+以下任务对应 2026-09-08 架构分析中识别的 1～9 项问题。任务顺序按安全边界、数据正确性、可靠性和扩展性排列；每项都包含可验收结果，便于拆成 issue 或迭代计划。
+
+| 编号 | 优先级 | 任务 | 验收标准 |
+|:---:|:---:|---|---|
+| 1 | P0 | 收紧注册与 JWT 密钥边界 | 生产环境缺少 `JWT_SECRET` 直接启动失败；注册改为邀请/审批或待激活低权限账号；新增注册越权和密钥缺失测试。 |
+| 2 | P1 | 修正字段级权限的资源与响应契约 | reviewer 在工单、知识库、搜索、状态更新等路径都不会收到未授权字段；权限按资源建模；新增允许/拒绝/越权测试。 |
+| 3 | P1 | 重建审计与工单回放事实链 | 状态变更在同一事务内写入 before/after 或 patch；回放结果可重复、不会修改当前工单；公开提交、失败写入和历史边界均有测试。 |
+| 4 | P1 | 让 RAG 检索可扩展且引用可追溯 | 只向模型发送去重后的 top-k chunk，并受 token/字符预算约束；返回引用包含文档和 chunk 标识；大数据量基准不再全表读入内存。 |
+| 5 | P1 | 完善知识索引失败状态机 | embedding、事务、队列失败都能进入 `FAILED` 并记录原因；重试次数、最后错误和人工重试入口可见；索引任务具备幂等性。 |
+| 6 | P1 | 建立 embedding 版本和维度契约 | 文档/分片记录 provider、model、dimensions、indexVersion；维度不匹配显式失败；切换 provider 有重建索引流程。 |
+| 7 | P1 | 让通知具备持久化补偿和多实例能力 | Notification 写入具备 outbox/重试语义；SSE 通过 Redis Pub/Sub 或消息总线跨实例广播；客户端按 ID 去重并支持断线补拉。 |
+| 8 | P1 | 区分真实 AI、mock 和 fallback 结果 | API 与 `AiLog` 明确记录 provider、model、fallback、失败类别和 requestId；外部错误日志脱敏；成本统计包含重试和降级语义。 |
+| 9 | P1/P2 | 收敛前端会话、状态和路由边界 | token 不再通过 URL 暴露；会话恢复区分网络错误和认证失效；引入请求取消/缓存/竞态保护；删除或归档旧 `HomePage`，更新路由和测试文档。 |
+
+## 长期规划
+
+### 0～1 个月：安全与事实正确性
+
+- 完成任务 1～3，优先处理注册准入、JWT 密钥、字段过滤和回放语义。
+- 把公开工单、状态变更、AI 调用和知识索引的关键失败路径加入自动化测试。
+- 为请求、审计事件、队列任务和 AI 调用增加 requestId、结构化日志和基础指标。
+- 更新前后端 README，使路由、测试数量、replay 限制和当前单实例边界与代码一致。
+
+### 1～3 个月：可靠性与成本控制
+
+- 完成任务 4～8：RAG chunk 级上下文、索引状态机、embedding 版本、通知补偿、AI fallback 可见性。
+- 建立 AI 输入长度、token 成本、fallback 比例、索引耗时、队列失败率和通知延迟的监控面板。
+- 为 Redis 故障定义按接口区分的降级策略，明确哪些接口 fail-open、哪些接口需要保护性拒绝。
+- 为上传、搜索、AI 调用和公开建单增加超时、限额、重试和幂等策略。
+
+### 3～6 个月：多实例与数据规模
+
+- 当知识库 chunk 数量或查询延迟达到容量阈值时，引入 pgvector/ANN 或独立检索服务；在此之前保留当前实现以控制复杂度。
+- 将 BullMQ Worker 从 API 进程拆成独立部署单元，使用相同任务契约和可观测性。
+- 使用 Redis Pub/Sub 或消息总线支撑多实例 SSE，并以 Notification 表作为断线补偿事实源。
+- 对 PostgreSQL 查询、缓存命中率、队列积压和 Node 内存建立容量基线，再决定是否分离服务。
+
+### 6～12 个月：产品化与平台治理
+
+- 前端引入统一请求缓存层和 OpenAPI 生成类型，收敛页面数据获取与权限契约。
+- 建立邀请、审批、角色变更、最小权限和敏感字段脱敏的管理流程。
+- 将审计事件、业务事件和用户可见操作历史分层建模，支持合规查询和可验证回放。
+- 为 AI provider、embedding provider、检索策略和 prompt 版本建立可配置、可回滚的发布流程。
+- 只有在领域边界、事件契约和容量指标稳定后，再评估拆分 AI 网关、检索服务或 Worker 服务；在此之前维持模块化单体。
+
+架构分析的详细证据、风险说明和验证边界见 [`docs/reports/2026-09-08-architecture-report.md`](docs/reports/2026-09-08-architecture-report.md)。
 
 ## 🧠 DeepSeek V4 Pro 模型集成计划
 
